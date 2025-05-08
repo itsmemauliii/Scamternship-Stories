@@ -106,7 +106,7 @@ with tab1:
             st.session_state.df = df
             st.success("Data loaded successfully!")
 
-            # Show basic stats
+            # Show basic stats - Moved inside the if block
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Listings", len(df))
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
