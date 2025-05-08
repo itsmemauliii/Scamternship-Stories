@@ -30,7 +30,7 @@ def check_scam_risk(text):
     """
     risk_score = 0
     text = str(text).lower()
-    
+
     red_flags = {
         "no payment": 15,
         "unpaid": 15,
@@ -45,14 +45,14 @@ def check_scam_risk(text):
         "pay to work": 30,
         "application fee": 20
     }
-    
+
     for flag, score in red_flags.items():
         if flag in text:
             risk_score += score
-    
+
     if re.search(r"\$\d+|\d+\s*(USD|INR|₹|dollars|rupees)", text):
         risk_score += 25
-        
+
     return min(risk_score, 100)  # Cap at 100
 
 def generate_wordcloud(text):
@@ -68,7 +68,7 @@ def generate_wordcloud(text):
             contour_width=1,
             contour_color='steelblue'
         ).generate(text)
-        
+
         fig, ax = plt.subplots(figsize=(12, 8))
         ax.imshow(wordcloud, interpolation="bilinear")
         ax.axis("off")
@@ -105,25 +105,25 @@ with tab1:
         if df is not None and not df.empty:
             st.session_state.df = df
             st.success("Data loaded successfully!")
-            
+
             # Show basic stats
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Listings", len(df))
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
             col2.metric("Text Columns", len(text_cols))
             col3.metric("Companies", df["Company"].nunique() if "Company" in df.columns else "N/A")
-            
+
             st.dataframe(df.head())
 
 with tab2:
     st.header("Analysis Results")
     df = st.session_state.df
-    
+
     if not df.empty:
         # Improved column selection with user feedback
         description_column = None
         text_columns = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
-        
+
         if "Description" in df.columns:
             description_column = "Description"
         elif text_columns:
@@ -140,21 +140,21 @@ with tab2:
         else:
             st.error("No text columns found for analysis")
             st.stop()
-        
+
         # Apply enhanced scam analysis
         with st.spinner("Analyzing listings for potential scams..."):
             df["Risk Score"] = df[description_column].apply(check_scam_risk)
             df["Risk Level"] = pd.cut(df["Risk Score"],
-                                    bins=[0, 30, 70, 100],
-                                    labels=["Low", "Medium", "High"],
-                                    right=False)
-        
+                                         bins=[0, 30, 70, 100],
+                                         labels=["Low", "Medium", "High"],
+                                         right=False)
+
         # Visualization Section
         st.subheader("Risk Analysis Visualizations")
-        
+
         # Tabbed view for different perspectives
         viz_tab1, viz_tab2, viz_tab3 = st.tabs(["By Position", "By Company", "Risk Distribution"])
-        
+
         with viz_tab1:
             # Position-wise risk chart
             fig1 = px.bar(
@@ -174,7 +174,7 @@ with tab2:
                 hovermode="closest"
             )
             st.plotly_chart(fig1, use_container_width=True)
-        
+
         with viz_tab2:
             if "Company" in df.columns:
                 # Company-wise analysis
@@ -182,8 +182,9 @@ with tab2:
                     Avg_Risk=("Risk Score", "mean"),
                     Count=("Risk Score", "count"),
                     High_Risk=("Risk Level", lambda x: sum(x == "High"))
+                )
                 company_stats = company_stats.sort_values("Avg_Risk", ascending=False)
-                
+
                 fig2 = px.scatter(
                     company_stats,
                     x="Count",
@@ -203,11 +204,11 @@ with tab2:
                 st.plotly_chart(fig2, use_container_width=True)
             else:
                 st.info("Company information not available for this analysis")
-        
+
         with viz_tab3:
             # Risk distribution visualization
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 # Pie chart
                 risk_dist = df["Risk Level"].value_counts().reset_index()
@@ -221,7 +222,7 @@ with tab2:
                     title="Risk Level Distribution"
                 )
                 st.plotly_chart(fig3, use_container_width=True)
-            
+
             with col2:
                 # Histogram
                 fig4 = px.histogram(
@@ -234,10 +235,10 @@ with tab2:
                     labels={"Risk Score": "Risk Score (%)"}
                 )
                 st.plotly_chart(fig4, use_container_width=True)
-        
+
         # Detailed Results Section
         st.subheader("Detailed Analysis Results")
-        
+
         # Filter controls
         with st.expander("Filter Options"):
             min_score = st.slider("Minimum Risk Score", 0, 100, 0)
@@ -246,24 +247,24 @@ with tab2:
                 options=["Low", "Medium", "High"],
                 default=["High", "Medium"]
             )
-        
+
         # Apply filters
         filtered_df = df[
-            (df["Risk Score"] >= min_score) & 
+            (df["Risk Score"] >= min_score) &
             (df["Risk Level"].isin(risk_level))
         ].sort_values("Risk Score", ascending=False)
-        
+
         # Show metrics
         col1, col2, col3 = st.columns(3)
         col1.metric("Filtered Listings", len(filtered_df))
         col2.metric("Average Risk", f"{filtered_df['Risk Score'].mean():.1f}%")
         col3.metric("High Risk", f"{sum(filtered_df['Risk Level'] == 'High')}")
-        
+
         # Display results
         st.dataframe(
             filtered_df.style.applymap(
-                lambda x: "background-color: #ffe6e6" if x == "High" else 
-                         ("background-color: #fff2e6" if x == "Medium" else ""),
+                lambda x: "background-color: #ffe6e6" if x == "High" else
+                          ("background-color: #fff2e6" if x == "Medium" else ""),
                 subset=["Risk Level"]
             ),
             column_config={
@@ -280,38 +281,38 @@ with tab2:
 
 with tab3:
     st.header("Red Flags Analysis")
-    
+
     if not df.empty and description_column:
         # Enhanced word cloud section
         st.subheader("Word Cloud of Common Terms")
-        
+
         all_text = " ".join(df[description_column].astype(str))
         wc_fig = generate_wordcloud(all_text)
-        
+
         if wc_fig:
             st.pyplot(wc_fig)
         else:
             st.warning("Could not generate word cloud")
-        
+
         # Term frequency analysis
         st.subheader("Red Flag Term Frequency")
-        
+
         red_flag_terms = [
-            "payment", "deposit", "fee", "unpaid", "money", 
+            "payment", "deposit", "fee", "unpaid", "money",
             "investment", "registration", "training", "guaranteed",
             "required", "pay", "send", "secure", "opportunity"
         ]
-        
+
         term_counts = {}
         for term in red_flag_terms:
             term_counts[term] = sum(
                 bool(re.search(rf"\b{term}\b", text.lower()))
                 for text in df[description_column].astype(str)
             )
-        
+
         term_df = pd.DataFrame.from_dict(term_counts, orient="index", columns=["Count"])
         term_df = term_df.sort_values("Count", ascending=False)
-        
+
         fig5 = px.bar(
             term_df,
             x=term_df.index,
@@ -322,18 +323,18 @@ with tab3:
             labels={"index": "Term", "Count": "Occurrences"}
         )
         st.plotly_chart(fig5, use_container_width=True)
-        
+
         # Show examples for selected term
         selected_term = st.selectbox(
             "View examples containing term:",
             term_df.index,
             index=0
         )
-        
+
         examples = df[
             df[description_column].str.contains(selected_term, case=False)
         ][[description_column, "Risk Score", "Risk Level"]]
-        
+
         if not examples.empty:
             st.dataframe(examples, use_container_width=True)
         else:
