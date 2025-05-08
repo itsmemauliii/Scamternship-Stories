@@ -1,82 +1,53 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import io
 import re
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 # **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
-# Import wordcloud and matplotlib at the top, but conditionally use them.
-try:
-    import wordcloud
+# Initialize tabs
+tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word Cloud"])
 
-    WORDCLOUD_AVAILABLE = True
-except ImportError:
-    WORDCLOUD_AVAILABLE = False
+# Sample data - replace with your actual data loading logic
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame({
+        "Job Title": ["Marketing Intern", "Data Analyst", "Remote Assistant", "Software Engineer"],
+        "Company": ["ABC Corp", "XYZ Inc", "Home Based Jobs", "Tech Innovators"],
+        "Description": [
+            "Great learning opportunity with no payment required",
+            "Data analysis position with competitive salary",
+            "Send $500 deposit to secure your remote position",
+            "Internship program with certificate upon completion"
+        ]
+    })
 
-try:
-    import matplotlib.pyplot as plt
-
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
-
-
-# Define check_scam_risk. It's good practice to define functions before using them.
 def check_scam_risk(text):
     """
-    Checks for scam indicators in the given text.
-
-    Args:
-        text (str): The text to analyze.
-
-    Returns:
-        int: A risk score (higher is riskier).
+    Simplified version of scam detection for the dashboard
     """
     risk_score = 0
-    text = text.lower()  # Ensure case-insensitive matching
-
-    # Define red flag keywords/phrases. Use a list for easier extension.
+    text = text.lower()
+    
     red_flags = [
-        "no payment",
-        "unpaid internship",
-        "unclear requirements",
-        "vague description",
-        "no contract",
-        "request personal information",
-        "immediate start",
-        "work from home only",
-        "guaranteed placement",
-        "high pay, little work",
-        "urgent hiring",
-        "investment required",
-        "sponsor fee",
-        "recruitment fee",
-        "training fee",
+        "no payment", "unpaid", "deposit required", "send money",
+        "guaranteed job", "immediate start", "no experience needed",
+        "registration fee", "training fee", "investment required"
     ]
-
-    # Check for red flags
+    
     for flag in red_flags:
         if flag in text:
-            risk_score += 1
-
-    # Additional checks (more complex patterns)
-    if re.search(r"\b(wire|transfer)\s+money\b", text):
-        risk_score += 2
-    if re.search(r"(ssn|social security number)", text):
-        risk_score += 2
-    if re.search(r"interview\s+via\s+(text|chat|telegram|whatsapp)", text):
-        risk_score += 1
-
-    return risk_score
-
+            risk_score += 10
+    
+    if re.search(r"\$\d+|\d+\s*(USD|INR|₹)", text):
+        risk_score += 20
+        
+    return min(risk_score, 100)  # Cap at 100
 
 def generate_wordcloud(text):
-    """Generate word cloud with fallback if dependencies not available"""
-    if not WORDCLOUD_AVAILABLE or not MATPLOTLIB_AVAILABLE:
-        return None
-
+    """Generate word cloud visualization"""
     try:
         wordcloud = WordCloud(
             width=800,
@@ -85,6 +56,7 @@ def generate_wordcloud(text):
             colormap="Reds",
             max_words=50,
         ).generate(text)
+        
         fig, ax = plt.subplots()
         ax.imshow(wordcloud, interpolation="bilinear")
         ax.axis("off")
@@ -93,236 +65,80 @@ def generate_wordcloud(text):
         st.error(f"Word cloud generation failed: {str(e)}")
         return None
 
-
-# Initialize tabs
-tab1, tab2, tab3 = st.tabs(
-    ["Data Upload", "Analysis Results", "Red Flags Word Cloud"]
-)
-
-# Sample data - replace with your actual data loading logic
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame(
-        {
-            "Job Title": [
-                "Marketing Intern",
-                "Data Analyst",
-                "Remote Assistant",
-                "Software Engineer",
-            ],
-            "Company": [
-                "ABC Corp",
-                "XYZ Inc",
-                "Home Based Jobs",
-                "Tech Innovators",
-            ],
-            "Red Flags": [
-                "No payment, Unclear requirements",
-                "No contract, Vague description",
-                "Request personal information",
-                "Unpaid Internship, High pay, little work",
-            ],
-        }
-    )
-
-df = st.session_state.df
-
-
 def load_data(uploaded_file):
-    """Loads data from the uploaded file, handling different file types."""
+    """Loads data from the uploaded file"""
     try:
         if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-            return df
-        elif uploaded_file.name.endswith(".txt"):
-            text_content = uploaded_file.read().decode("utf-8")
-            # Basic parsing: split by lines, assume comma-separated within lines.
-            lines = text_content.strip().split("\n")
-            data = [line.split(",") for line in lines]
-            # Create DataFrame, handling potential header row
-            if data:
-                header = data[0]
-                if (
-                    len(header) > 1
-                ):  # check if the first row can be header
-                    try:
-                        df = pd.DataFrame(data[1:], columns=header)
-                        return df
-                    except ValueError:
-                        df = pd.DataFrame(data)
-                        df.columns = [f"Column_{i}" for i in range(len(df.columns))]
-                        return df
-                else:
-                    df = pd.DataFrame(data)
-                    df.columns = [f"Column_{i}" for i in range(len(df.columns))]
-                    return df
-            else:
-                return pd.DataFrame()  # Return empty DataFrame
-        elif uploaded_file.name.endswith(".pdf"):
-            import pdfplumber
-
-            text_content = ""
-            try:
-                with pdfplumber.open(uploaded_file) as pdf:
-                    for page in pdf.pages:
-                        text_content += page.extract_text() + " "
-            except Exception as e:
-                st.error(f"Error reading PDF: {e}")
-                return pd.DataFrame()
-            # Very basic parsing of PDF text. This will need improvement.
-            lines = text_content.strip().split("\n")
-            data = [line.split(",") for line in lines]
-            # Create DataFrame, handling potential header row
-            if data:
-                header = data[0]
-                if (
-                    len(header) > 1
-                ):  # check if the first row can be header
-                    try:
-                        df = pd.DataFrame(data[1:], columns=header)
-                        return df
-                    except ValueError:
-                        df = pd.DataFrame(data)
-                        df.columns = [f"Column_{i}" for i in range(len(df.columns))]
-                        return df
-                else:
-                    df = pd.DataFrame(data)
-                    df.columns = [f"Column_{i}" for i in range(len(df.columns))]
-                        return df
-            else:
-                return pd.DataFrame()  # Return empty DataFrame
+            return pd.read_csv(uploaded_file)
+        elif uploaded_file.name.endswith((".xls", ".xlsx")):
+            return pd.read_excel(uploaded_file)
         else:
-            st.error("Unsupported file type. Please upload a CSV, TXT, or PDF file.")
+            st.error("Unsupported file type. Please upload a CSV or Excel file.")
             return pd.DataFrame()
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
 
-
 with tab1:
     st.header("Upload Your Data")
     uploaded_file = st.file_uploader(
-        "Choose a file (CSV, PDF, or text)",
-        type=["csv", "pdf", "txt"],
-        accept_multiple_files=False,
-        help="Upload internship listings for analysis (max 200MB)",
+        "Choose a file (CSV or Excel)",
+        type=["csv", "xls", "xlsx"],
+        help="Upload internship listings for analysis"
     )
 
     if uploaded_file:
-        st.success(f"File {uploaded_file.name} uploaded successfully!")
-        df = load_data(uploaded_file)  # Load data.
-        st.session_state.df = df  # store the dataframe
+        df = load_data(uploaded_file)
         if not df.empty:
-            st.write("First 5 rows of uploaded data:")
+            st.session_state.df = df
+            st.success("Data loaded successfully!")
             st.dataframe(df.head())
-
 
 with tab2:
     st.header("Analysis Results")
-    # Access the dataframe from the session state
     df = st.session_state.df
+    
     if not df.empty:
-        # Apply scam analysis
-        if "check_scam_risk" in globals():
-            try:
-                # Ensure 'Red Flags' column exists
-                if "Red Flags" not in df.columns:
-                    df["Red Flags"] = (
-                        "No flags"  # Or some default value
-                    )
-                    st.warning(
-                        "The 'Red Flags' column was not found in your data. Analysis will be based on other columns."
-                    )
-
-                df["Risk Score"] = df["Red Flags"].apply(
-                    lambda x: check_scam_risk(str(x))
-                )
-                # st.dataframe(df.sort_values("Risk Score", ascending=False)) #removed
-
-                # Visualize risk scores
-                if "Risk Score" in df.columns:
-                    if "Company" in df.columns and "Job Description" in df.columns:  # Added this check
-                        fig = px.bar(
-                            df,
-                            x="Job Description",
-                            y="Risk Score",
-                            color="Company",  # Corrected line
-                            title="Scam Risk by Internship Position",
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                    elif "Job Description" in df.columns:
-                        fig = px.bar(
-                            df,
-                            x="Job Description",
-                            y="Risk Score",
-                            title="Scam Risk by Internship Position",
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.warning("Cannot display chart.  Required columns are missing.")
-
-                st.dataframe(
-                    df.sort_values("Risk Score", ascending=False)
-                )  # moved here
-            except Exception as e:
-                st.error(f"Analysis error: {str(e)}")
-                st.dataframe(df)
-        else:
-            st.dataframe(df)
-    else:
-        st.info("No data available. Please upload a file in the Data Upload tab.")
-
-
-with tab3:  # Word Cloud tab
-    st.markdown("### 🚩 Most Common Red Flags")
-
-    # Safely extract flags
-    try:
-        df = st.session_state.df  # get the dataframe
-        if not df.empty and "Red Flags" in df.columns:
-            all_flags = " ".join(
-                [
-                    flag
-                    for sublist in df["Red Flags"]
-                    for flag in str(sublist).split(", ")
-                    if flag
-                ]
-            )
-        else:
-            all_flags = ""
-    except Exception as e:
-        st.error(f"Error processing flags: {str(e)}")
-        all_flags = ""
-
-    if all_flags.strip():
-        if WORDCLOUD_AVAILABLE and MATPLOTLIB_AVAILABLE:
-            try:
-                import wordcloud
-                import matplotlib.pyplot as plt
-
-                wc_fig = generate_wordcloud(all_flags)  # error
-                if wc_fig:
-                    st.pyplot(wc_fig)
-                else:
-                    # Fallback to text display
-                    unique_flags = list(
-                        set(filter(None, all_flags.split()))
-                    )  # remove empty strings
-                    if len(unique_flags) > 10:
-                        top_flags = ", ".join(sorted(unique_flags)[:10])
-                    else:
-                        top_flags = ", ".join(sorted(unique_flags))
-                    st.info(f"Top flags: {top_flags}")
-            except Exception as e:
-                st.error(f"Error in word cloud tab: {e}")
-
-        else:
-            unique_flags = list(
-                set(filter(None, all_flags.split()))
-            )  # remove empty strings
-            if len(unique_flags) > 10:
-                top_flags = ", ".join(sorted(unique_flags)[:10])
+        # Ensure we have a description column to analyze
+        if "Description" not in df.columns:
+            st.warning("No 'Description' column found. Using first text column instead.")
+            text_columns = [col for col in df.columns if df[col].dtype == 'object']
+            if text_columns:
+                df["Description"] = df[text_columns[0]]
             else:
-                top_flags = ", ".join(sorted(unique_flags))
-            st.info(f"Top flags: {top_flags}")
+                st.error("No text columns found for analysis.")
+                st.stop()
+        
+        # Apply scam analysis
+        df["Risk Score"] = df["Description"].apply(lambda x: check_scam_risk(str(x)))
+        
+        # Visualize results
+        fig = px.bar(
+            df.sort_values("Risk Score", ascending=False),
+            x="Job Title" if "Job Title" in df.columns else df.columns[0],
+            y="Risk Score",
+            color="Company" if "Company" in df.columns else None,
+            title="Scam Risk Analysis"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show detailed results
+        st.dataframe(df.sort_values("Risk Score", ascending=False))
+
+with tab3:
+    st.header("Red Flags Word Cloud")
+    df = st.session_state.df
+    
+    if not df.empty and "Description" in df.columns:
+        all_text = " ".join(df["Description"].astype(str))
+        wc_fig = generate_wordcloud(all_text)
+        
+        if wc_fig:
+            st.pyplot(wc_fig)
+        else:
+            st.info("Could not generate word cloud. Here are common terms:")
+            words = re.findall(r"\b\w{4,}\b", all_text.lower())
+            word_counts = pd.Series(words).value_counts().head(10)
+            st.bar_chart(word_counts)
     else:
-        st.info("No red flags detected in these listings.")
+        st.warning("No
