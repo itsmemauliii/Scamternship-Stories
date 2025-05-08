@@ -31,7 +31,7 @@ st.title("🚩 Scamternship Detector Dashboard")
 if not PDF_SUPPORT:
     st.warning("PDF processing disabled - install with: `pip install pdfplumber`")
 if not WORDCLOUD_SUPPORT:
-    st.warning("Word cloud disabled - install with: `pip install wordcloud`")
+    st.warning("Word cloud disabled - install with: pip install wordcloud")
 if not MATPLOTLIB_SUPPORT:
     st.warning("Matplotlib disabled - install with: `pip install matplotlib`")
 
