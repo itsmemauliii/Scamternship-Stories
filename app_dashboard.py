@@ -61,6 +61,6 @@ with tab3:  # Word Cloud tab
             else:
                 st.info("Couldn't generate word cloud")
         else:
-            st.info("Top flags: " + ", ".join(sorted(set(all_flags.split()))[:10])
+            st.info("Top flags: " + ", ".join(sorted(set(all_flags.split()))[:10]))
     else:
         st.info("No red flags detected in these listings.")
