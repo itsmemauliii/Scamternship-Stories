@@ -222,7 +222,7 @@ with tab2:
                 if "Risk Score" in df.columns:
                     fig = px.bar(
                         df,
-                        x="Job Title",
+                        x="Job Description",  # Corrected line
                         y="Risk Score",
                         color="Company",
                         title="Scam Risk by Internship Position",
