@@ -129,7 +129,7 @@ with tab2:
     df = st.session_state.df
 
     if not df.empty:
-        # Improved column selection with user feedback
+        # Improved column selection for description
         description_column = None
         text_columns = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
 
@@ -150,6 +150,22 @@ with tab2:
             st.error("No text columns found for analysis")
             st.stop()
 
+        # **New: Column selection for Job Title/Position**
+        job_title_column = None
+        all_columns = df.columns.tolist()
+        if "Job Title" in all_columns:
+            job_title_column = "Job Title"
+        elif all_columns:
+            job_title_column = st.selectbox(
+                "Select the job title/position column:",
+                all_columns,
+                index=0,
+                help="Select which column contains the job titles or position names"
+            )
+
+        if not job_title_column:
+            st.warning("No column selected for job titles/positions. Position-wise analysis will use row index.")
+
         # Apply enhanced scam analysis
         with st.spinner("Analyzing listings for potential scams..."):
             df["Risk Score"] = df[description_column].apply(check_scam_risk)
@@ -166,15 +182,16 @@ with tab2:
 
         with viz_tab1:
             # Position-wise risk chart
+            x_axis_label = job_title_column if job_title_column else df.index
             fig1 = px.bar(
                 df.sort_values("Risk Score", ascending=False),
-                x="Job Title" if "Job Title" in df.columns else df.index,
+                x=x_axis_label,
                 y="Risk Score",
                 color="Risk Level",
                 color_discrete_map={"Low": "#2ecc71", "Medium": "#f39c12", "High": "#e74c3c"},
                 hover_data=[description_column, "Companies"] if "Companies" in df.columns else [description_column],
                 title="Risk Scores by Position",
-                labels={"Risk Score": "Risk Score (%)"},
+                labels={"Risk Score": "Risk Score (%)", x_axis_label: "Position"},
                 height=600
             )
             fig1.update_layout(
