@@ -79,32 +79,24 @@ def generate_wordcloud(text):
         return None
 
 def load_data(uploaded_file):
-    """Improved data loading function with better error handling"""
+    """Improved data loading function with better error handling and delimiter detection"""
     try:
         if uploaded_file.name.endswith(".csv"):
-            try:
-                df = pd.read_csv(uploaded_file) # Try with default comma delimiter first
-                if len(df.columns) == 1: # If only one column is read, try other delimiters
-                    uploaded_file.seek(0) # Reset file pointer to the beginning
-                    df = pd.read_csv(uploaded_file, delimiter=';') # Try semicolon
-                    if len(df.columns) == 1:
-                        uploaded_file.seek(0)
-                        df = pd.read_csv(uploaded_file, delimiter='\t') # Try tab
-                        if len(df.columns) == 1:
-                            st.error("Could not automatically detect the delimiter. Please ensure your CSV uses comma, semicolon, or tab.")
-                            return None
-                return df
-            except pd.errors.EmptyDataError:
-                st.error("The uploaded CSV file is empty.")
-                return None
-            except Exception as e:
-                st.error(f"Error reading CSV file: {str(e)}")
-                return None
+            for delimiter in [',', ';', '\t']:
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file, delimiter=delimiter, skipinitialspace=True)
+                if len(df.columns) > 1:
+                    return df
+            st.error("Could not automatically detect the delimiter. Please ensure your CSV uses comma, semicolon, or tab.")
+            return None
         elif uploaded_file.name.endswith((".xls", ".xlsx")):
             return pd.read_excel(uploaded_file)
         else:
             st.error("Unsupported file type. Please upload a CSV or Excel file.")
             return None
+    except pd.errors.EmptyDataError:
+        st.error("The uploaded file is empty.")
+        return None
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return None
@@ -123,18 +115,7 @@ with tab1:
             st.session_state.df = df
             st.success("Data loaded successfully!")
 
-            # --- Debugging Information ---
-            st.subheader("Debugging:")
-            st.write("Column Names:", df.columns.tolist())
-            st.write("Is 'Companies' in columns?", "Companies" in df.columns)
-            if "Companies" in df.columns:
-                st.write("Number of Unique Companies (using .nunique()):", df["Companies"].nunique())
-                st.write("First 5 values in 'Companies' column:", df["Companies"].head().tolist())
-            else:
-                st.warning("'Companies' column not found!")
-            st.write("DataFrame is empty:", df.empty)
-            # --- End Debugging Information ---
-
+            # Show basic stats
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Listings", len(df))
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
@@ -191,7 +172,7 @@ with tab2:
                 y="Risk Score",
                 color="Risk Level",
                 color_discrete_map={"Low": "#2ecc71", "Medium": "#f39c12", "High": "#e74c3c"},
-                hover_data=[description_column, "Company"] if "Company" in df.columns else [description_column],
+                hover_data=[description_column, "Companies"] if "Companies" in df.columns else [description_column],
                 title="Risk Scores by Position",
                 labels={"Risk Score": "Risk Score (%)"},
                 height=600
@@ -204,9 +185,9 @@ with tab2:
             st.plotly_chart(fig1, use_container_width=True)
 
         with viz_tab2:
-            if "Company" in df.columns:
+            if "Companies" in df.columns:
                 # Company-wise analysis
-                company_stats = df.groupby("Company").agg(
+                company_stats = df.groupby("Companies").agg(
                     Avg_Risk=("Risk Score", "mean"),
                     Count=("Risk Score", "count"),
                     High_Risk=("Risk Level", lambda x: sum(x == "High"))
@@ -222,7 +203,7 @@ with tab2:
                     color_continuous_scale="reds",
                     hover_name=company_stats.index,
                     title="Company Risk Profile (Size = High Risk Count)",
-                    labels={"Avg_Risk": "Average Risk", "Count": "Listings Count"},
+                    labels={"Avg_Risk": "Average Risk", "Count": "Listings Count", "Companies": "Company"},
                     height=600
                 )
                 fig2.update_layout(
@@ -361,7 +342,7 @@ with tab3:
 
         examples = df[
             df[description_column].str.contains(selected_term, case=False)
-        ][[description_column, "Risk Score", "Risk Level"]]
+        ][["Description", "Risk Score", "Risk Level"]] # Ensure 'Description' is used here
 
         if not examples.empty:
             st.dataframe(examples, use_container_width=True)
