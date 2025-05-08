@@ -4,6 +4,10 @@ import plotly.express as px
 import io
 import re
 
+# **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
+st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
+
+
 # Optional dependencies - check before use. No need to pip install here.
 try:
     import pdfplumber
@@ -83,11 +87,6 @@ def check_scam_risk(text):
 
     return risk_score
 
-
-# **Crucially, move st.set_page_config() to the very beginning of the script**
-st.set_page_config(
-    page_title="Scamternship Detector Dashboard", layout="wide"
-)  # MUST BE FIRST
 
 
 def generate_wordcloud(text):
