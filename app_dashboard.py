@@ -195,7 +195,6 @@ with tab1:
             st.write("First 5 rows of uploaded data:")
             st.dataframe(df.head())
 
-
 with tab2:
     st.header("Analysis Results")
     # Access the dataframe from the session state
@@ -216,18 +215,28 @@ with tab2:
                 df["Risk Score"] = df["Red Flags"].apply(
                     lambda x: check_scam_risk(str(x))
                 )
-                st.dataframe(df.sort_values("Risk Score", ascending=False))
+                #st.dataframe(df.sort_values("Risk Score", ascending=False)) #removed
 
                 # Visualize risk scores
                 if "Risk Score" in df.columns:
-                    fig = px.bar(
-                        df,
-                        x="Job Description",  # Corrected line
-                        y="Risk Score",
-                        color="Company",
-                        title="Scam Risk by Internship Position",
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                    if "Company" in df.columns: #Added this check
+                        fig = px.bar(
+                            df,
+                            x="Job Description",
+                            y="Risk Score",
+                            color="Company",  # Corrected line
+                            title="Scam Risk by Internship Position",
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        fig = px.bar(
+                            df,
+                            x="Job Description",
+                            y="Risk Score",
+                            title="Scam Risk by Internship Position",
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(df.sort_values("Risk Score", ascending=False)) #moved here
             except Exception as e:
                 st.error(f"Analysis error: {str(e)}")
                 st.dataframe(df)
