@@ -78,28 +78,37 @@ def generate_wordcloud(text):
         st.error(f"Word cloud generation failed: {str(e)}")
         return None
 
-def load_data(uploaded_file):
-    """Improved data loading function with better error handling and delimiter detection"""
+import streamlit as st
+import pandas as pd
+from PyPDF2 import PdfReader
+
+def load_pdf_data(uploaded_file):
+    text = ""
     try:
-        if uploaded_file.name.endswith(".csv"):
-            for delimiter in [',', ';', '\t']:
-                uploaded_file.seek(0)
-                df = pd.read_csv(uploaded_file, delimiter=delimiter, skipinitialspace=True)
-                if len(df.columns) > 1:
-                    return df
-            st.error("Could not automatically detect the delimiter. Please ensure your CSV uses comma, semicolon, or tab.")
-            return None
-        elif uploaded_file.name.endswith((".xls", ".xlsx")):
-            return pd.read_excel(uploaded_file)
-        else:
-            st.error("Unsupported file type. Please upload a CSV or Excel file.")
-            return None
-    except pd.errors.EmptyDataError:
-        st.error("The uploaded file is empty.")
-        return None
+        pdf_reader = PdfReader(uploaded_file)
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return pd.DataFrame({"Description": [text]})
     except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+        st.error(f"Error reading PDF: {e}")
         return None
+
+with tab1:
+    st.header("Upload Your Data (PDF)")
+    uploaded_file = st.file_uploader(
+        "Choose a PDF file",
+        type=["pdf"],
+        help="Upload internship listings in PDF format for basic text analysis"
+    )
+
+    if uploaded_file:
+        df = load_pdf_data(uploaded_file)
+        if df is not None and not df.empty:
+            st.session_state.df = df
+            st.success("PDF text loaded successfully!")
+            st.dataframe(df)
+        else:
+            st.warning("Could not load data from the PDF.")
 
 with tab1:
     st.header("Upload Your Data")
