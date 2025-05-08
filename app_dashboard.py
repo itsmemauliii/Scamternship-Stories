@@ -3,6 +3,9 @@ import pandas as pd
 import plotly.express as px
 import io
 import re
+import subprocess
+import sys
+import os
 
 # **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
@@ -88,7 +91,6 @@ def check_scam_risk(text):
     return risk_score
 
 
-
 def generate_wordcloud(text):
     """Generate word cloud with fallback if dependencies not available"""
     if not WORDCLOUD_SUPPORT or not MATPLOTLIB_SUPPORT:
@@ -112,8 +114,8 @@ def generate_wordcloud(text):
 
 
 # Initialize tabs
-tab1, tab2, tab3 = st.tabs(
-    ["Data Upload", "Analysis Results", "Red Flags Word Cloud"]
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["Data Upload", "Analysis Results", "Red Flags Word Cloud", "Setup"]
 )
 
 # Sample data - replace with your actual data loading logic
@@ -320,3 +322,46 @@ with tab3:  # Word Cloud tab
             st.info(f"Top flags: {top_flags}")
     else:
         st.info("No red flags detected in these listings.")
+
+
+with tab4:
+    st.header("Setup")
+    st.markdown(
+        "Click the button below to install the required dependencies and generate the `requirements.txt` file."
+    )
+    if st.button("Run Setup"):
+        try:
+            # 1. Install the optional packages
+            st.markdown("Installing optional dependencies: pdfplumber, wordcloud, matplotlib...")
+            packages = ["pdfplumber", "wordcloud", "matplotlib"]
+            for package in packages:
+                try:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+                    st.markdown(f"Successfully installed {package}.")
+                except subprocess.CalledProcessError as e:
+                    st.error(f"Error installing {package}: {e}")
+                    st.markdown(f"Skipping {package} installation.")  # Continue to the next package
+
+            # 2. Generate the requirements.txt file
+            st.markdown("Generating requirements.txt...")
+            try:
+                # Ensure the current directory is the project root.
+                # This is crucial for creating requirements.txt in the right place.
+                project_root = os.getcwd()  # Get current working directory
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "freeze", ">", "requirements.txt"],
+                    shell=True,  # Needed for output redirection (">")
+                    cwd=project_root,  # set the current directory
+                )
+                st.markdown(
+                    "Successfully generated requirements.txt in the project root directory."
+                )
+            except subprocess.CalledProcessError as e:
+                st.error(f"Error generating requirements.txt: {e}")
+                st.markdown(
+                    "Please ensure you have pip installed and that you are in the project's root directory."
+                )
+
+            st.markdown("Setup complete.  Please restart the application.")
+        except Exception as e:
+            st.error(f"An unexpected error occurred: {e}")
