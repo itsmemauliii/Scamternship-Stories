@@ -201,8 +201,7 @@ with tab2:
             fig3.update_traces(
                 textposition='inside',
                 textinfo='percent+label',
-                pull=[0.1 if level == "High" else 0 for level in risk_counts["Risk Level"]
-            )
+                pull=[0.1 if level == "High" else 0 for level in risk_counts["Risk Level"])
             st.plotly_chart(fig3, use_container_width=True)
         
         # 2. Enhanced Word Frequency Analysis
