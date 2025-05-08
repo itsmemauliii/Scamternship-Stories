@@ -10,6 +10,18 @@ import re
 # **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
+# Import wordcloud and matplotlib at the top, but conditionally use them.
+try:
+    import wordcloud
+    WORDCLOUD_AVAILABLE = True
+except ImportError:
+    WORDCLOUD_AVAILABLE = False
+
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 
 # Define check_scam_risk. It's good practice to define functions before using them.
@@ -247,13 +259,21 @@ with tab3:  # Word Cloud tab
         all_flags = ""
 
     if all_flags.strip():
-        import wordcloud
-        import matplotlib.pyplot as plt
-        wc_fig = generate_wordcloud(all_flags)
-        if wc_fig:
-            st.pyplot(wc_fig)
+        if WORDCLOUD_AVAILABLE and MATPLOTLIB_AVAILABLE:
+            wc_fig = generate_wordcloud(all_flags)
+            if wc_fig:
+                st.pyplot(wc_fig)
+            else:
+                # Fallback to text display
+                unique_flags = list(
+                    set(filter(None, all_flags.split()))
+                )  # remove empty strings
+                if len(unique_flags) > 10:
+                    top_flags = ", ".join(sorted(unique_flags)[:10])
+                else:
+                    top_flags = ", ".join(sorted(unique_flags))
+                st.info(f"Top flags: {top_flags}")
         else:
-            # Fallback to text display
             unique_flags = list(
                 set(filter(None, all_flags.split()))
             )  # remove empty strings
