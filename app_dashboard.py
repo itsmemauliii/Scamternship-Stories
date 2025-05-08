@@ -4,6 +4,7 @@ import plotly.express as px
 from scam_analysis import check_scam_risk
 import io
 import re
+pip install pdfplumber wordcloud matplotlib
 
 # Check for all optional dependencies
 try:
@@ -18,6 +19,11 @@ try:
 except ImportError:
     WORDCLOUD_SUPPORT = False
 
+if not WORDCLOUD_SUPPORT:
+    st.warning("Word cloud disabled - install with: `pip install wordcloud`")
+
+pip install --upgrade streamlit
+
 try:
     import matplotlib.pyplot as plt
     MATPLOTLIB_SUPPORT = True
@@ -26,14 +32,6 @@ except ImportError:
 
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 st.title("🚩 Scamternship Detector Dashboard")
-
-# Warning messages for missing dependencies
-if not PDF_SUPPORT:
-    st.warning("PDF processing disabled - install with: `pip install pdfplumber`")
-if not WORDCLOUD_SUPPORT:
-    st.warning("Word cloud disabled - install with: `pip install wordcloud`")
-if not MATPLOTLIB_SUPPORT:
-    st.warning("Matplotlib disabled - install with: `pip install matplotlib`")
 
 def generate_wordcloud(text):
     """Generate word cloud with fallback if dependencies not available"""
@@ -70,24 +68,15 @@ df = st.session_state.df
 
 with tab1:
     st.header("Upload Your Data")
-    uploaded_file = st.file_uploader("Choose a file (CSV, PDF, or text)", 
-                                   type=['csv', 'pdf', 'txt'])
+    uploaded_file = st.file_uploader(
+        "Choose a file (CSV, PDF, or text)",
+        type=['csv', 'pdf', 'txt'],
+        accept_multiple_files=False,
+        help="Upload internship listings for analysis (max 200MB)"
+    )
+    
     if uploaded_file:
-        try:
-            if uploaded_file.type == "text/csv":
-                df = pd.read_csv(uploaded_file)
-            elif uploaded_file.type == "application/pdf" and PDF_SUPPORT:
-                with pdfplumber.open(uploaded_file) as pdf:
-                    text = "\n".join([page.extract_text() for page in pdf.pages])
-                df = pd.DataFrame({'Extracted Text': [text]})
-            else:
-                text = uploaded_file.getvalue().decode("utf-8")
-                df = pd.DataFrame({'Extracted Text': [text]})
-            
-            st.session_state.df = df
-            st.success("File processed successfully!")
-        except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
+        st.success(f"File {uploaded_file.name} uploaded successfully!")
 
 with tab2:
     st.header("Analysis Results")
