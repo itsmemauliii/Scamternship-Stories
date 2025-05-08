@@ -82,7 +82,24 @@ def load_data(uploaded_file):
     """Improved data loading function with better error handling"""
     try:
         if uploaded_file.name.endswith(".csv"):
-            return pd.read_csv(uploaded_file)
+            try:
+                df = pd.read_csv(uploaded_file) # Try with default comma delimiter first
+                if len(df.columns) == 1: # If only one column is read, try other delimiters
+                    uploaded_file.seek(0) # Reset file pointer to the beginning
+                    df = pd.read_csv(uploaded_file, delimiter=';') # Try semicolon
+                    if len(df.columns) == 1:
+                        uploaded_file.seek(0)
+                        df = pd.read_csv(uploaded_file, delimiter='\t') # Try tab
+                        if len(df.columns) == 1:
+                            st.error("Could not automatically detect the delimiter. Please ensure your CSV uses comma, semicolon, or tab.")
+                            return None
+                return df
+            except pd.errors.EmptyDataError:
+                st.error("The uploaded CSV file is empty.")
+                return None
+            except Exception as e:
+                st.error(f"Error reading CSV file: {str(e)}")
+                return None
         elif uploaded_file.name.endswith((".xls", ".xlsx")):
             return pd.read_excel(uploaded_file)
         else:
