@@ -1,6 +1,3 @@
-pip install pdfplumber
-pip install wordcloud
-pip install matplotlib
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -56,12 +53,14 @@ def generate_wordcloud(text):
         st.error(f"Word cloud generation failed: {str(e)}")
         return None
 
-# Initialize tabs (this was missing in original code)
+# Initialize tabs
 tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word Cloud"])
 
 # Sample data - replace with your actual data loading logic
 if 'df' not in st.session_state:
     st.session_state.df = pd.DataFrame({
+        'Job Title': ['Marketing Intern', 'Data Analyst', 'Remote Assistant'],
+        'Company': ['ABC Corp', 'XYZ Inc', 'Home Based Jobs'],
         'Red Flags': ['No payment, Unclear requirements', 
                      'No contract, Vague description',
                      'Request personal information']
@@ -74,13 +73,41 @@ with tab1:
     uploaded_file = st.file_uploader("Choose a file (CSV, PDF, or text)", 
                                    type=['csv', 'pdf', 'txt'])
     if uploaded_file:
-        # Add your file processing logic here
-        st.success("File uploaded successfully!")
+        try:
+            if uploaded_file.type == "text/csv":
+                df = pd.read_csv(uploaded_file)
+            elif uploaded_file.type == "application/pdf" and PDF_SUPPORT:
+                with pdfplumber.open(uploaded_file) as pdf:
+                    text = "\n".join([page.extract_text() for page in pdf.pages])
+                df = pd.DataFrame({'Extracted Text': [text]})
+            else:
+                text = uploaded_file.getvalue().decode("utf-8")
+                df = pd.DataFrame({'Extracted Text': [text]})
+            
+            st.session_state.df = df
+            st.success("File processed successfully!")
+        except Exception as e:
+            st.error(f"Error processing file: {str(e)}")
 
 with tab2:
     st.header("Analysis Results")
     if not df.empty:
-        st.dataframe(df)
+        # Apply scam analysis if check_scam_risk function exists
+        if 'check_scam_risk' in globals():
+            try:
+                df['Risk Score'] = df['Red Flags'].apply(lambda x: check_scam_risk(str(x)))
+                st.dataframe(df.sort_values('Risk Score', ascending=False))
+                
+                # Visualize risk scores if available
+                if 'Risk Score' in df.columns:
+                    fig = px.bar(df, x='Job Title', y='Risk Score', color='Company',
+                                title='Scam Risk by Internship Position')
+                    st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Analysis error: {str(e)}")
+                st.dataframe(df)
+        else:
+            st.dataframe(df)
     else:
         st.info("No data available. Please upload a file in the Data Upload tab.")
 
@@ -89,8 +116,11 @@ with tab3:  # Word Cloud tab
     
     # Safely extract flags
     try:
-        all_flags = " ".join([flag for sublist in df["Red Flags"] 
-                            for flag in str(sublist).split(", ") if flag])
+        if not df.empty and 'Red Flags' in df.columns:
+            all_flags = " ".join([flag for sublist in df["Red Flags"] 
+                                for flag in str(sublist).split(", ") if flag])
+        else:
+            all_flags = ""
     except Exception as e:
         st.error(f"Error processing flags: {str(e)}")
         all_flags = ""
