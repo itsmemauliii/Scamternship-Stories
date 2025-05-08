@@ -106,7 +106,18 @@ with tab1:
             st.session_state.df = df
             st.success("Data loaded successfully!")
 
-            # Show basic stats - Moved inside the if block
+            # --- Debugging Information ---
+            st.subheader("Debugging:")
+            st.write("Column Names:", df.columns.tolist())
+            st.write("Is 'Company' in columns?", "Company" in df.columns)
+            if "Company" in df.columns:
+                st.write("Number of Unique Companies (using .nunique()):", df["Company"].nunique())
+                st.write("First 5 values in 'Company' column:", df["Company"].head().tolist())
+            else:
+                st.warning("'Company' column not found!")
+            st.write("DataFrame is empty:", df.empty)
+            # --- End Debugging Information ---
+
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Listings", len(df))
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
