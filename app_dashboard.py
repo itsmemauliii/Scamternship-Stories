@@ -260,19 +260,25 @@ with tab3:  # Word Cloud tab
 
     if all_flags.strip():
         if WORDCLOUD_AVAILABLE and MATPLOTLIB_AVAILABLE:
-            wc_fig = generate_wordcloud(all_flags)
-            if wc_fig:
-                st.pyplot(wc_fig)
-            else:
-                # Fallback to text display
-                unique_flags = list(
-                    set(filter(None, all_flags.split()))
-                )  # remove empty strings
-                if len(unique_flags) > 10:
-                    top_flags = ", ".join(sorted(unique_flags)[:10])
+            try:
+                import wordcloud
+                import matplotlib.pyplot as plt
+                wc_fig = generate_wordcloud(all_flags) #error
+                if wc_fig:
+                    st.pyplot(wc_fig)
                 else:
-                    top_flags = ", ".join(sorted(unique_flags))
-                st.info(f"Top flags: {top_flags}")
+                    # Fallback to text display
+                    unique_flags = list(
+                        set(filter(None, all_flags.split()))
+                    )  # remove empty strings
+                    if len(unique_flags) > 10:
+                        top_flags = ", ".join(sorted(unique_flags)[:10])
+                    else:
+                        top_flags = ", ".join(sorted(unique_flags))
+                    st.info(f"Top flags: {top_flags}")
+            except Exception as e:
+                st.error(f"Error in word cloud tab: {e}")
+
         else:
             unique_flags = list(
                 set(filter(None, all_flags.split()))
