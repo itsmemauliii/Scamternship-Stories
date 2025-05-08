@@ -31,7 +31,7 @@ st.title("🚩 Scamternship Detector Dashboard")
 if not PDF_SUPPORT:
     st.warning("PDF processing disabled - install with: `pip install pdfplumber`")
 if not WORDCLOUD_SUPPORT:
-    st.warning("Word cloud disabled - install with: pip install wordcloud")
+    st.warning("Word cloud disabled - install with: `pip install wordcloud`")
 if not MATPLOTLIB_SUPPORT:
     st.warning("Matplotlib disabled - install with: `pip install matplotlib`")
 
@@ -53,7 +53,33 @@ def generate_wordcloud(text):
         st.error(f"Word cloud generation failed: {str(e)}")
         return None
 
-# [Rest of your existing code...]
+# Initialize tabs (this was missing in original code)
+tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word Cloud"])
+
+# Sample data - replace with your actual data loading logic
+if 'df' not in st.session_state:
+    st.session_state.df = pd.DataFrame({
+        'Red Flags': ['No payment, Unclear requirements', 
+                     'No contract, Vague description',
+                     'Request personal information']
+    })
+
+df = st.session_state.df
+
+with tab1:
+    st.header("Upload Your Data")
+    uploaded_file = st.file_uploader("Choose a file (CSV, PDF, or text)", 
+                                   type=['csv', 'pdf', 'txt'])
+    if uploaded_file:
+        # Add your file processing logic here
+        st.success("File uploaded successfully!")
+
+with tab2:
+    st.header("Analysis Results")
+    if not df.empty:
+        st.dataframe(df)
+    else:
+        st.info("No data available. Please upload a file in the Data Upload tab.")
 
 with tab3:  # Word Cloud tab
     st.markdown("### 🚩 Most Common Red Flags")
