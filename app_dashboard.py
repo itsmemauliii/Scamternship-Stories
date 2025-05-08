@@ -3,9 +3,6 @@ import pandas as pd
 import plotly.express as px
 import io
 import re
-#import subprocess #not used
-#import sys #not used
-#import os #not used
 
 # **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
@@ -13,12 +10,14 @@ st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 # Import wordcloud and matplotlib at the top, but conditionally use them.
 try:
     import wordcloud
+
     WORDCLOUD_AVAILABLE = True
 except ImportError:
     WORDCLOUD_AVAILABLE = False
 
 try:
     import matplotlib.pyplot as plt
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -73,6 +72,27 @@ def check_scam_risk(text):
     return risk_score
 
 
+def generate_wordcloud(text):
+    """Generate word cloud with fallback if dependencies not available"""
+    if not WORDCLOUD_AVAILABLE or not MATPLOTLIB_AVAILABLE:
+        return None
+
+    try:
+        wordcloud = WordCloud(
+            width=800,
+            height=400,
+            background_color="white",
+            colormap="Reds",
+            max_words=50,
+        ).generate(text)
+        fig, ax = plt.subplots()
+        ax.imshow(wordcloud, interpolation="bilinear")
+        ax.axis("off")
+        return fig
+    except Exception as e:
+        st.error(f"Word cloud generation failed: {str(e)}")
+        return None
+
 
 # Initialize tabs
 tab1, tab2, tab3 = st.tabs(
@@ -80,7 +100,7 @@ tab1, tab2, tab3 = st.tabs(
 )
 
 # Sample data - replace with your actual data loading logic
-if 'df' not in st.session_state:
+if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame(
         {
             "Job Title": [
@@ -139,6 +159,7 @@ def load_data(uploaded_file):
                 return pd.DataFrame()  # Return empty DataFrame
         elif uploaded_file.name.endswith(".pdf"):
             import pdfplumber
+
             text_content = ""
             try:
                 with pdfplumber.open(uploaded_file) as pdf:
@@ -166,7 +187,7 @@ def load_data(uploaded_file):
                 else:
                     df = pd.DataFrame(data)
                     df.columns = [f"Column_{i}" for i in range(len(df.columns))]
-                    return df
+                        return df
             else:
                 return pd.DataFrame()  # Return empty DataFrame
         else:
@@ -175,7 +196,6 @@ def load_data(uploaded_file):
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
-
 
 
 with tab1:
@@ -191,9 +211,10 @@ with tab1:
         st.success(f"File {uploaded_file.name} uploaded successfully!")
         df = load_data(uploaded_file)  # Load data.
         st.session_state.df = df  # store the dataframe
-        if not df.empty:  # show the first 5 rows
+        if not df.empty:
             st.write("First 5 rows of uploaded data:")
             st.dataframe(df.head())
+
 
 with tab2:
     st.header("Analysis Results")
@@ -215,11 +236,11 @@ with tab2:
                 df["Risk Score"] = df["Red Flags"].apply(
                     lambda x: check_scam_risk(str(x))
                 )
-                #st.dataframe(df.sort_values("Risk Score", ascending=False)) #removed
+                # st.dataframe(df.sort_values("Risk Score", ascending=False)) #removed
 
                 # Visualize risk scores
                 if "Risk Score" in df.columns:
-                    if "Company" in df.columns: #Added this check
+                    if "Company" in df.columns and "Job Description" in df.columns:  # Added this check
                         fig = px.bar(
                             df,
                             x="Job Description",
@@ -228,7 +249,7 @@ with tab2:
                             title="Scam Risk by Internship Position",
                         )
                         st.plotly_chart(fig, use_container_width=True)
-                    else:
+                    elif "Job Description" in df.columns:
                         fig = px.bar(
                             df,
                             x="Job Description",
@@ -236,7 +257,12 @@ with tab2:
                             title="Scam Risk by Internship Position",
                         )
                         st.plotly_chart(fig, use_container_width=True)
-                st.dataframe(df.sort_values("Risk Score", ascending=False)) #moved here
+                    else:
+                        st.warning("Cannot display chart.  Required columns are missing.")
+
+                st.dataframe(
+                    df.sort_values("Risk Score", ascending=False)
+                )  # moved here
             except Exception as e:
                 st.error(f"Analysis error: {str(e)}")
                 st.dataframe(df)
@@ -272,7 +298,8 @@ with tab3:  # Word Cloud tab
             try:
                 import wordcloud
                 import matplotlib.pyplot as plt
-                wc_fig = generate_wordcloud(all_flags) #error
+
+                wc_fig = generate_wordcloud(all_flags)  # error
                 if wc_fig:
                     st.pyplot(wc_fig)
                 else:
