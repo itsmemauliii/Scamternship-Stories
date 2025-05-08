@@ -99,32 +99,110 @@ with tab2:
     df = st.session_state.df
     
     if not df.empty:
-        # Ensure we have a description column to analyze
-        if "Description" not in df.columns:
-            st.warning("No 'Description' column found. Using first text column instead.")
-            text_columns = [col for col in df.columns if df[col].dtype == 'object']
-            if text_columns:
-                df["Description"] = df[text_columns[0]]
+        # Improved column selection logic with better user feedback
+        description_column = None
+        
+        # First try exact match
+        if "Description" in df.columns:
+            description_column = "Description"
+        else:
+            # Look for similar columns (case insensitive)
+            possible_matches = [col for col in df.columns if "desc" in col.lower()]
+            
+            if possible_matches:
+                # Let user select which column to use
+                description_column = st.selectbox(
+                    "Select the column containing job descriptions:",
+                    options=possible_matches,
+                    help="We couldn't find a column named 'Description'. Please select which column contains the job descriptions."
+                )
+                st.info(f"Using column '{description_column}' for analysis.")
             else:
-                st.error("No text columns found for analysis.")
-                st.stop()
+                # Fallback to first text column with warning
+                text_columns = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
+                
+                if text_columns:
+                    description_column = text_columns[0]
+                    st.warning(
+                        f"No obvious description column found. Using '{description_column}' for analysis. "
+                        "If this isn't correct, please rename your description column to 'Description' in your data file."
+                    )
+                else:
+                    st.error(
+                        "No text columns found for analysis. Please ensure your data contains at least one "
+                        "text column with job descriptions."
+                    )
+                    st.stop()
         
         # Apply scam analysis
-        df["Risk Score"] = df["Description"].apply(lambda x: check_scam_risk(str(x)))
+        df["Risk Score"] = df[description_column].apply(lambda x: check_scam_risk(str(x)))
         
-        # Visualize results
+        # Enhanced visualization with more context
+        st.subheader("Risk Score Distribution")
         fig = px.bar(
             df.sort_values("Risk Score", ascending=False),
             x="Job Title" if "Job Title" in df.columns else df.columns[0],
             y="Risk Score",
             color="Company" if "Company" in df.columns else None,
-            title="Scam Risk Analysis"
+            title="Scam Risk Analysis by Position",
+            hover_data=[description_column],
+            labels={'x': 'Position', 'y': 'Risk Score (%)'}
+        )
+        fig.update_layout(
+            yaxis_range=[0,100],
+            hovermode="closest"
         )
         st.plotly_chart(fig, use_container_width=True)
         
-        # Show detailed results
-        st.dataframe(df.sort_values("Risk Score", ascending=False))
-
+        # Add summary statistics
+        st.subheader("Risk Score Summary")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("High Risk (≥70)", f"{sum(df['Risk Score'] >= 70)}", "positions")
+        col2.metric("Medium Risk (30-69)", f"{sum((df['Risk Score'] >= 30) & (df['Risk Score'] < 70))}", "positions")
+        col3.metric("Low Risk (<30)", f"{sum(df['Risk Score'] < 30)}", "positions")
+        
+        # Enhanced results table with filtering
+        st.subheader("Detailed Results")
+        
+        # Add filtering options
+        risk_filter = st.slider(
+            "Filter by minimum risk score:",
+            min_value=0,
+            max_value=100,
+            value=0,
+            help="Show only positions with at least this risk score"
+        )
+        
+        filtered_df = df[df["Risk Score"] >= risk_filter].sort_values("Risk Score", ascending=False)
+        
+        # Format the display
+        display_cols = [description_column, "Risk Score"]
+        if "Company" in df.columns:
+            display_cols.insert(0, "Company")
+        if "Job Title" in df.columns:
+            display_cols.insert(0, "Job Title")
+        
+        # Add explanation of risk scores
+        with st.expander("How to interpret risk scores"):
+            st.markdown("""
+            - **0-29**: Low risk - No obvious red flags detected
+            - **30-69**: Medium risk - Some concerning phrases found
+            - **70-100**: High risk - Multiple red flags detected
+            """)
+        
+        st.dataframe(
+            filtered_df[display_cols],
+            column_config={
+                "Risk Score": st.column_config.ProgressColumn(
+                    "Risk Score",
+                    help="Risk score from 0-100",
+                    format="%d%%",
+                    min_value=0,
+                    max_value=100,
+                )
+            },
+            use_container_width=True
+        )
 with tab3:
     st.header("Red Flags Word Cloud")
     df = st.session_state.df
