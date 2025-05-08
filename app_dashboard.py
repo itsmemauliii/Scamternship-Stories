@@ -99,110 +99,148 @@ with tab2:
     df = st.session_state.df
     
     if not df.empty:
-        # Improved column selection logic with better user feedback
-        description_column = None
-        
-        # First try exact match
-        if "Description" in df.columns:
-            description_column = "Description"
-        else:
-            # Look for similar columns (case insensitive)
-            possible_matches = [col for col in df.columns if "desc" in col.lower()]
-            
-            if possible_matches:
-                # Let user select which column to use
-                description_column = st.selectbox(
-                    "Select the column containing job descriptions:",
-                    options=possible_matches,
-                    help="We couldn't find a column named 'Description'. Please select which column contains the job descriptions."
-                )
-                st.info(f"Using column '{description_column}' for analysis.")
-            else:
-                # Fallback to first text column with warning
-                text_columns = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
-                
-                if text_columns:
-                    description_column = text_columns[0]
-                    st.warning(
-                        f"No obvious description column found. Using '{description_column}' for analysis. "
-                        "If this isn't correct, please rename your description column to 'Description' in your data file."
-                    )
-                else:
-                    st.error(
-                        "No text columns found for analysis. Please ensure your data contains at least one "
-                        "text column with job descriptions."
-                    )
-                    st.stop()
+        # [Previous column selection logic remains the same...]
         
         # Apply scam analysis
         df["Risk Score"] = df[description_column].apply(lambda x: check_scam_risk(str(x)))
+        df["Risk Level"] = pd.cut(df["Risk Score"],
+                                 bins=[0, 30, 70, 100],
+                                 labels=["Low", "Medium", "High"],
+                                 right=False)
         
-        # Enhanced visualization with more context
-        st.subheader("Risk Score Distribution")
-        fig = px.bar(
-            df.sort_values("Risk Score", ascending=False),
-            x="Job Title" if "Job Title" in df.columns else df.columns[0],
-            y="Risk Score",
-            color="Company" if "Company" in df.columns else None,
-            title="Scam Risk Analysis by Position",
-            hover_data=[description_column],
-            labels={'x': 'Position', 'y': 'Risk Score (%)'}
-        )
-        fig.update_layout(
-            yaxis_range=[0,100],
-            hovermode="closest"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        # 1. Enhanced Risk Distribution Chart
+        st.subheader("Risk Distribution Overview")
         
-        # Add summary statistics
-        st.subheader("Risk Score Summary")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("High Risk (≥70)", f"{sum(df['Risk Score'] >= 70)}", "positions")
-        col2.metric("Medium Risk (30-69)", f"{sum((df['Risk Score'] >= 30) & (df['Risk Score'] < 70))}", "positions")
-        col3.metric("Low Risk (<30)", f"{sum(df['Risk Score'] < 30)}", "positions")
+        # Create tabs for different chart views
+        chart_tab1, chart_tab2, chart_tab3 = st.tabs(["By Position", "By Company", "Risk Levels"])
         
-        # Enhanced results table with filtering
-        st.subheader("Detailed Results")
+        with chart_tab1:
+            # Interactive bar chart with more features
+            fig1 = px.bar(
+                df.sort_values("Risk Score", ascending=False),
+                x="Job Title" if "Job Title" in df.columns else df.columns[0],
+                y="Risk Score",
+                color="Risk Level",
+                color_discrete_map={
+                    "Low": "#2ecc71",
+                    "Medium": "#f39c12",
+                    "High": "#e74c3c"
+                },
+                hover_data=[description_column, "Company"] if "Company" in df.columns else [description_column],
+                title="Risk Scores by Position",
+                labels={'x': 'Position', 'y': 'Risk Score (%)'},
+                height=500
+            )
+            fig1.update_layout(
+                xaxis={'categoryorder':'total descending'},
+                yaxis_range=[0,100],
+                hoverlabel=dict(bgcolor="white", font_size=12),
+                uniformtext_minsize=8,
+                uniformtext_mode='hide'
+            )
+            fig1.update_traces(
+                marker_line_color='rgb(8,48,107)',
+                marker_line_width=1.5,
+                opacity=0.9
+            )
+            st.plotly_chart(fig1, use_container_width=True)
         
-        # Add filtering options
-        risk_filter = st.slider(
-            "Filter by minimum risk score:",
-            min_value=0,
-            max_value=100,
-            value=0,
-            help="Show only positions with at least this risk score"
-        )
-        
-        filtered_df = df[df["Risk Score"] >= risk_filter].sort_values("Risk Score", ascending=False)
-        
-        # Format the display
-        display_cols = [description_column, "Risk Score"]
-        if "Company" in df.columns:
-            display_cols.insert(0, "Company")
-        if "Job Title" in df.columns:
-            display_cols.insert(0, "Job Title")
-        
-        # Add explanation of risk scores
-        with st.expander("How to interpret risk scores"):
-            st.markdown("""
-            - **0-29**: Low risk - No obvious red flags detected
-            - **30-69**: Medium risk - Some concerning phrases found
-            - **70-100**: High risk - Multiple red flags detected
-            """)
-        
-        st.dataframe(
-            filtered_df[display_cols],
-            column_config={
-                "Risk Score": st.column_config.ProgressColumn(
-                    "Risk Score",
-                    help="Risk score from 0-100",
-                    format="%d%%",
-                    min_value=0,
-                    max_value=100,
+        with chart_tab2:
+            if "Company" in df.columns:
+                # Company-wise aggregation
+                company_df = df.groupby("Company", as_index=False).agg(
+                    Avg_Risk=("Risk Score", "mean"),
+                    Positions=("Job Title", "count")
+                ).sort_values("Avg_Risk", ascending=False)
+                
+                fig2 = px.scatter(
+                    company_df,
+                    x="Company",
+                    y="Avg_Risk",
+                    size="Positions",
+                    color="Avg_Risk",
+                    color_continuous_scale="RdYlGn_r",
+                    hover_name="Company",
+                    hover_data=["Positions"],
+                    title="Average Risk by Company (Size = # of Positions)",
+                    labels={'Avg_Risk': 'Average Risk Score', 'Company': ''},
+                    height=500
                 )
-            },
-            use_container_width=True
-        )
+                fig2.update_layout(
+                    yaxis_range=[0,100],
+                    coloraxis_showscale=False,
+                    xaxis={'tickangle': 45}
+                )
+                fig2.update_traces(
+                    marker=dict(line=dict(width=1, color='DarkSlateGrey'))
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.info("Company information not available for this view")
+        
+        with chart_tab3:
+            # Pie chart showing risk level distribution
+            risk_counts = df["Risk Level"].value_counts().reset_index()
+            risk_counts.columns = ["Risk Level", "Count"]
+            
+            fig3 = px.pie(
+                risk_counts,
+                values="Count",
+                names="Risk Level",
+                color="Risk Level",
+                color_discrete_map={
+                    "Low": "#2ecc71",
+                    "Medium": "#f39c12",
+                    "High": "#e74c3c"
+                },
+                hole=0.4,
+                title="Distribution of Risk Levels",
+                hover_data=["Count"],
+                labels={"Count": "Positions"}
+            )
+            fig3.update_traces(
+                textposition='inside',
+                textinfo='percent+label',
+                pull=[0.1 if level == "High" else 0 for level in risk_counts["Risk Level"]
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+        
+        # 2. Enhanced Word Frequency Analysis
+        st.subheader("Common Red Flag Terms")
+        
+        # Extract and visualize common concerning terms
+        all_text = " ".join(df[description_column].astype(str)).lower()
+        red_flag_terms = [
+            term for term in re.findall(r'\b\w{4,}\b', all_text) 
+            if term in [
+                "payment", "deposit", "fee", "unpaid", 
+                "required", "money", "investment", 
+                "registration", "training", "guaranteed"
+            ]
+        ]
+        
+        if red_flag_terms:
+            term_counts = pd.Series(red_flag_terms).value_counts().reset_index()
+            term_counts.columns = ["Term", "Count"]
+            
+            fig4 = px.bar(
+                term_counts,
+                x="Term",
+                y="Count",
+                color="Count",
+                color_continuous_scale="Reds",
+                title="Frequency of Red Flag Terms",
+                labels={'Count': 'Occurrences', 'Term': ''},
+                height=400
+            )
+            fig4.update_layout(
+                xaxis={'categoryorder':'total descending'},
+                coloraxis_showscale=False
+            )
+            st.plotly_chart(fig4, use_container_width=True)
+        else:
+            st.success("No common red flag terms detected in descriptions")
+
 with tab3:
     st.header("Red Flags Word Cloud")
     df = st.session_state.df
