@@ -4,26 +4,16 @@ import plotly.express as px
 import re
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+from PyPDF2 import PdfReader  # Import PdfReader
 
 # **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
-# Initialize tabs
-tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word Cloud"])
-
-# Sample data - replace with your actual data loading logic
+# Initialize session state
 if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame({
-        "Job Title": ["Marketing Intern", "Data Analyst", "Remote Assistant", "Software Engineer"],
-        "Companies": ["ABC Corp", "XYZ Inc", "Home Based Jobs", "Tech Innovators"],
-        "Description": [
-            "Great learning opportunity with no payment required",
-            "Data analysis position with competitive salary",
-            "Send $500 deposit to secure your remote position",
-            "Internship program with certificate upon completion"
-        ]
-    })
+    st.session_state.df = pd.DataFrame()
 
+# Define functions
 def check_scam_risk(text):
     """
     Enhanced version of scam detection for the dashboard
@@ -78,48 +68,61 @@ def generate_wordcloud(text):
         st.error(f"Word cloud generation failed: {str(e)}")
         return None
 
-import streamlit as st
-import pandas as pd
-from PyPDF2 import PdfReader
+def load_data(uploaded_file):
+    """Load data from CSV or Excel file."""
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file, skipinitialspace=True)
+        elif uploaded_file.name.endswith((".xls", ".xlsx")):
+            df = pd.read_excel(uploaded_file)
+        else:
+            st.error("Unsupported file type. Please upload a CSV or Excel file.")
+            return None
+        if not df.empty:
+            return df
+        else:
+            st.error("The file is empty")
+            return None
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return None
 
 def load_pdf_data(uploaded_file):
+    """Load data from PDF file and extract relevant information."""
     text = ""
     try:
         pdf_reader = PdfReader(uploaded_file)
         for page in pdf_reader.pages:
             text += page.extract_text() + "\n"
-        return pd.DataFrame({"Description": [text]})
+        # Basic extraction (Improved)
+        job_title_match = re.search(r"(?:Job Title:|Position:)\s*(.*)", text, re.IGNORECASE)
+        job_title = job_title_match.group(1).strip() if job_title_match else "N/A"
+
+        company_match = re.search(r"(?:Company:|Hiring at:|Organization:)\s*(.*)", text, re.IGNORECASE)
+        company = company_match.group(1).strip() if company_match else "N/A"
+        return pd.DataFrame({"Job Title": [job_title], "Companies": [company], "Description": [text]})
+
     except Exception as e:
         st.error(f"Error reading PDF: {e}")
         return None
 
-with tab1:
-    st.header("Upload Your Data (PDF)")
-    uploaded_file = st.file_uploader(
-        "Choose a PDF file",
-        type=["pdf"],
-        help="Upload internship listings in PDF format for basic text analysis"
-    )
-
-    if uploaded_file:
-        df = load_pdf_data(uploaded_file)
-        if df is not None and not df.empty:
-            st.session_state.df = df
-            st.success("PDF text loaded successfully!")
-            st.dataframe(df)
-        else:
-            st.warning("Could not load data from the PDF.")
+# Main App Structure
+tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word Cloud"])
 
 with tab1:
     st.header("Upload Your Data")
     uploaded_file = st.file_uploader(
-        "Choose a file (CSV or Excel)",
-        type=["csv", "xls", "xlsx"],
+        "Choose a file (CSV, Excel, or PDF)",
+        type=["csv", "xls", "xlsx", "pdf"],
         help="Upload internship listings for analysis"
     )
 
     if uploaded_file:
-        df = load_data(uploaded_file)
+        if uploaded_file.name.endswith(".pdf"):
+            df = load_pdf_data(uploaded_file)
+        else:
+            df = load_data(uploaded_file)
+
         if df is not None and not df.empty:
             st.session_state.df = df
             st.success("Data loaded successfully!")
@@ -132,6 +135,8 @@ with tab1:
             col3.metric("Companies", df["Companies"].nunique() if "Companies" in df.columns else "N/A")
 
             st.dataframe(df.head())
+        else:
+            st.warning("Could not load data from the file.")
 
 with tab2:
     st.header("Analysis Results")
@@ -179,9 +184,9 @@ with tab2:
         with st.spinner("Analyzing listings for potential scams..."):
             df["Risk Score"] = df[description_column].apply(check_scam_risk)
             df["Risk Level"] = pd.cut(df["Risk Score"],
-                                         bins=[0, 30, 70, 100],
-                                         labels=["Low", "Medium", "High"],
-                                         right=False)
+                                     bins=[0, 30, 70, 100],
+                                     labels=["Low", "Medium", "High"],
+                                     right=False)
 
         # Visualization Section
         st.subheader("Risk Analysis Visualizations")
@@ -316,8 +321,29 @@ with tab2:
 
 with tab3:
     st.header("Red Flags Analysis")
+    df = st.session_state.df
 
-    if not df.empty and description_column:
+    if not df.empty:
+        # Improved column selection for description
+        description_column = None
+        text_columns = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
+
+        if "Description" in df.columns:
+            description_column = "Description"
+        elif text_columns:
+            if len(text_columns) > 1:
+                description_column = st.selectbox(
+                    "Select the description column:",
+                    text_columns,
+                    index=0,
+                    help="Select which column contains the job descriptions"
+                )
+            else:
+                description_column = text_columns[0]
+                st.warning(f"Using '{description_column}' as description column")
+        else:
+            st.error("No text columns found for analysis")
+            st.stop()
         # Enhanced word cloud section
         st.subheader("Word Cloud of Common Terms")
 
@@ -368,7 +394,7 @@ with tab3:
 
         examples = df[
             df[description_column].str.contains(selected_term, case=False)
-        ][["Description", "Risk Score", "Risk Level"]] # Ensure 'Description' is used here
+        ][["Description", "Risk Score", "Risk Level"]]  # Ensure 'Description' is used here
 
         if not examples.empty:
             st.dataframe(examples, use_container_width=True)
