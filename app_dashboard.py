@@ -3,43 +3,13 @@ import pandas as pd
 import plotly.express as px
 import io
 import re
-import subprocess
-import sys
-import os
+#import subprocess #not used
+#import sys #not used
+#import os #not used
 
 # **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
-
-# Optional dependencies - check before use. No need to pip install here.
-try:
-    import pdfplumber
-    PDF_SUPPORT = True
-except ImportError:
-    PDF_SUPPORT = False
-    st.warning(
-        "pdfplumber not found. PDF support is disabled. Install with: `pip install pdfplumber`"
-    )
-
-try:
-    from wordcloud import WordCloud
-
-    WORDCLOUD_SUPPORT = True
-except ImportError:
-    WORDCLOUD_SUPPORT = False
-    st.warning(
-        "wordcloud not found. Word Cloud support is disabled. Install with: `pip install wordcloud`"
-    )
-
-try:
-    import matplotlib.pyplot as plt
-
-    MATPLOTLIB_SUPPORT = True
-except ImportError:
-    MATPLOTLIB_SUPPORT = False
-    st.warning(
-        "matplotlib not found. Plotting is disabled. Install with: `pip install matplotlib`"
-    )
 
 
 # Define check_scam_risk. It's good practice to define functions before using them.
@@ -91,35 +61,14 @@ def check_scam_risk(text):
     return risk_score
 
 
-def generate_wordcloud(text):
-    """Generate word cloud with fallback if dependencies not available"""
-    if not WORDCLOUD_SUPPORT or not MATPLOTLIB_SUPPORT:
-        return None
-
-    try:
-        wordcloud = WordCloud(
-            width=800,
-            height=400,
-            background_color="white",
-            colormap="Reds",
-            max_words=50,
-        ).generate(text)
-        fig, ax = plt.subplots()
-        ax.imshow(wordcloud, interpolation="bilinear")
-        ax.axis("off")
-        return fig
-    except Exception as e:
-        st.error(f"Word cloud generation failed: {str(e)}")
-        return None
-
 
 # Initialize tabs
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["Data Upload", "Analysis Results", "Red Flags Word Cloud", "Setup"]
+tab1, tab2, tab3 = st.tabs(
+    ["Data Upload", "Analysis Results", "Red Flags Word Cloud"]
 )
 
 # Sample data - replace with your actual data loading logic
-if "df" not in st.session_state:
+if 'df' not in st.session_state:
     st.session_state.df = pd.DataFrame(
         {
             "Job Title": [
@@ -176,7 +125,8 @@ def load_data(uploaded_file):
                     return df
             else:
                 return pd.DataFrame()  # Return empty DataFrame
-        elif uploaded_file.name.endswith(".pdf") and PDF_SUPPORT:
+        elif uploaded_file.name.endswith(".pdf"):
+            import pdfplumber
             text_content = ""
             try:
                 with pdfplumber.open(uploaded_file) as pdf:
@@ -213,6 +163,7 @@ def load_data(uploaded_file):
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
+
 
 
 with tab1:
@@ -296,20 +247,11 @@ with tab3:  # Word Cloud tab
         all_flags = ""
 
     if all_flags.strip():
-        if WORDCLOUD_SUPPORT and MATPLOTLIB_SUPPORT:
-            wc_fig = generate_wordcloud(all_flags)
-            if wc_fig:
-                st.pyplot(wc_fig)
-            else:
-                # Fallback to text display
-                unique_flags = list(
-                    set(filter(None, all_flags.split()))
-                )  # remove empty strings
-                if len(unique_flags) > 10:
-                    top_flags = ", ".join(sorted(unique_flags)[:10])
-                else:
-                    top_flags = ", ".join(sorted(unique_flags))
-                st.info(f"Top flags: {top_flags}")
+        import wordcloud
+        import matplotlib.pyplot as plt
+        wc_fig = generate_wordcloud(all_flags)
+        if wc_fig:
+            st.pyplot(wc_fig)
         else:
             # Fallback to text display
             unique_flags = list(
@@ -322,46 +264,3 @@ with tab3:  # Word Cloud tab
             st.info(f"Top flags: {top_flags}")
     else:
         st.info("No red flags detected in these listings.")
-
-
-with tab4:
-    st.header("Setup")
-    st.markdown(
-        "Click the button below to install the required dependencies and generate the `requirements.txt` file."
-    )
-    if st.button("Run Setup"):
-        try:
-            # 1. Install the optional packages
-            st.markdown("Installing optional dependencies: pdfplumber, wordcloud, matplotlib...")
-            packages = ["pdfplumber", "wordcloud", "matplotlib"]
-            for package in packages:
-                try:
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-                    st.markdown(f"Successfully installed {package}.")
-                except subprocess.CalledProcessError as e:
-                    st.error(f"Error installing {package}: {e}")
-                    st.markdown(f"Skipping {package} installation.")  # Continue to the next package
-
-            # 2. Generate the requirements.txt file
-            st.markdown("Generating requirements.txt...")
-            try:
-                # Ensure the current directory is the project root.
-                # This is crucial for creating requirements.txt in the right place.
-                project_root = os.getcwd()  # Get current working directory
-                subprocess.check_call(
-                    [sys.executable, "-m", "pip", "freeze", ">", "requirements.txt"],
-                    shell=True,  # Needed for output redirection (">")
-                    cwd=project_root,  # set the current directory
-                )
-                st.markdown(
-                    "Successfully generated requirements.txt in the project root directory."
-                )
-            except subprocess.CalledProcessError as e:
-                st.error(f"Error generating requirements.txt: {e}")
-                st.markdown(
-                    "Please ensure you have pip installed and that you are in the project's root directory."
-                )
-
-            st.markdown("Setup complete.  Please restart the application.")
-        except Exception as e:
-            st.error(f"An unexpected error occurred: {e}")
