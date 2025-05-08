@@ -141,4 +141,4 @@ with tab3:
             word_counts = pd.Series(words).value_counts().head(10)
             st.bar_chart(word_counts)
     else:
-        st.warning("No
+        st.warning("No description data available to generate word cloud.")
