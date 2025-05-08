@@ -15,7 +15,7 @@ tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word C
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame({
         "Job Title": ["Marketing Intern", "Data Analyst", "Remote Assistant", "Software Engineer"],
-        "Company": ["ABC Corp", "XYZ Inc", "Home Based Jobs", "Tech Innovators"],
+        "Companies": ["ABC Corp", "XYZ Inc", "Home Based Jobs", "Tech Innovators"],
         "Description": [
             "Great learning opportunity with no payment required",
             "Data analysis position with competitive salary",
@@ -109,12 +109,12 @@ with tab1:
             # --- Debugging Information ---
             st.subheader("Debugging:")
             st.write("Column Names:", df.columns.tolist())
-            st.write("Is 'Company' in columns?", "Company" in df.columns)
-            if "Company" in df.columns:
-                st.write("Number of Unique Companies (using .nunique()):", df["Company"].nunique())
-                st.write("First 5 values in 'Company' column:", df["Company"].head().tolist())
+            st.write("Is 'Companies' in columns?", "Companies" in df.columns)
+            if "Companies" in df.columns:
+                st.write("Number of Unique Companies (using .nunique()):", df["Companies"].nunique())
+                st.write("First 5 values in 'Companies' column:", df["Companies"].head().tolist())
             else:
-                st.warning("'Company' column not found!")
+                st.warning("'Companies' column not found!")
             st.write("DataFrame is empty:", df.empty)
             # --- End Debugging Information ---
 
@@ -122,7 +122,7 @@ with tab1:
             col1.metric("Total Listings", len(df))
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
             col2.metric("Text Columns", len(text_cols))
-            col3.metric("Companies", df["Company"].nunique() if "Company" in df.columns else "N/A")
+            col3.metric("Companies", df["Companies"].nunique() if "Companies" in df.columns else "N/A")
 
             st.dataframe(df.head())
 
