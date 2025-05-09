@@ -1,8 +1,4 @@
-from genai_analysis import analyze_with_genai
 import streamlit as st
-import openai
-import os
-openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 import pandas as pd
 import plotly.express as px
 import re
@@ -167,17 +163,6 @@ with tab2:
         else:
             st.error("No text columns found for analysis")
             st.stop()
-        from genai_analysis import analyze_with_genai
-        use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
-        if use_genai:
-            with st.spinner("Running GenAI analysis..."):
-            df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai)
-        # Safely display results with available columns
-        st.subheader("Final Results Table")
-        expected_cols = ["Job Title", "Companies", description_column, "Risk Score", "Risk Level", "GenAI Analysis"]
-        available_cols = [col for col in expected_cols if col in df.columns]
-        st.dataframe(df[available_cols])
-
 
         # **New: Column selection for Job Title/Position**
         job_title_column = None
