@@ -3,9 +3,14 @@ import openai
 import streamlit as st
 import os
 
-# The API key should be managed in Streamlit secrets.
-# Access it using st.secrets.get("OPENAI_API_KEY") in the main app.
-
+openai.api_key = st.secrets.get("OPENAI_API_KEY")
+if openai.api_key:
+    print(f"GenAI Analysis - First 5 of API Key: {openai.api_key[:5]}")
+else:
+    print("GenAI Analysis - API Key NOT FOUND in secrets!")
+    st.warning("OpenAI API key not found in Streamlit secrets.")
+    return "OpenAI API key not configured"
+    
 def analyze_with_genai(text):
     """
     Analyzes text using OpenAI's GPT model for potential scam indicators.
