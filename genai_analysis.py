@@ -1,15 +1,16 @@
+# genai_analysis.py
 import openai
-import os
+import streamlit as st
 
-# Set your OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")  # Or set directly for testing
+# Use Streamlit secrets for API key (set in secrets.toml or Streamlit Cloud)
+openai.api_key = st.secrets.get("OPENAI_API_KEY")
 
 def analyze_with_genai(description):
     prompt = f"""
-You are a career advisor and scam detector. Analyze the following job description and:
-1. Tell whether it's a scam or not.
-2. List any red flags.
-3. Provide short advice to the job seeker.
+You are an expert scam detector and career advisor. Analyze the following job description and:
+1. Say whether it's likely a scam or not.
+2. List any red flags you identify.
+3. Give a brief piece of advice to the applicant.
 
 Job Description:
 \"\"\"
@@ -24,9 +25,7 @@ Job Description:
             max_tokens=300,
             temperature=0.4
         )
-
-        result = response.choices[0].message.content.strip()
-        return result
+        return response.choices[0].message.content.strip()
 
     except Exception as e:
-        return f"Error: {e}"
+        return f"[GENAI ERROR] {str(e)}"
