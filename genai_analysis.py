@@ -13,9 +13,6 @@ def analyze_with_genai(text):
             st.warning("OpenAI API key is not configured in Streamlit secrets.")
             return "OpenAI API key not configured"
 
-        # **DEBUGGING: Print the API key being used**
-        print(f"DEBUG: analyze_with_genai - API Key being used (first 8 chars): {openai.api_key[:8] if openai.api_key else 'None'}")
-
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",  # Or another suitable model
             messages=[
