@@ -1,31 +1,39 @@
 # genai_analysis.py
 import openai
 import streamlit as st
+import os
 
-# Use Streamlit secrets for API key (set in secrets.toml or Streamlit Cloud)
-openai.api_key = st.secrets.get("OPENAI_API_KEY")
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
-def analyze_with_genai(description):
-    prompt = f"""
-You are an expert scam detector and career advisor. Analyze the following job description and:
-1. Say whether it's likely a scam or not.
-2. List any red flags you identify.
-3. Give a brief piece of advice to the applicant.
-
-Job Description:
-\"\"\"
-{description}
-\"\"\"
+def analyze_with_genai(text):
     """
-
+    Analyzes text using OpenAI's GPT model for potential scam indicators.
+    """
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.4
+        if not openai.api_key:
+            st.warning("OpenAI API key is not configured.")
+            return "OpenAI API key not configured"
+
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",  # Or another suitable model
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that analyzes job descriptions for potential scam indicators. Focus on vague language, requests for money, guaranteed roles without interviews, and unusual urgency."},
+                {"role": "user", "content": f"Analyze the following text for scam indicators: '{text}'"}
+            ],
+            temperature=0.7,
+            max_tokens=150,
+            n=1,
+            stop=None,
         )
         return response.choices[0].message.content.strip()
-
     except Exception as e:
-        return f"[GENAI ERROR] {str(e)}"
+        return f"Error during GenAI analysis: {e}"
+
+if __name__ == '__main__':
+    test_text = "This amazing opportunity guarantees you a high-paying role immediately after you pay a small training fee. No experience needed!"
+    analysis_result = analyze_with_genai(test_text)
+    print(f"Analysis of: '{test_text}'\nResult: {analysis_result}")
+
+    test_text_no_scam = "Seeking a motivated intern to assist with marketing tasks. This is an unpaid internship offering valuable experience."
+    analysis_result_no_scam = analyze_with_genai(test_text_no_scam)
+    print(f"Analysis of: '{test_text_no_scam}'\nResult: {analysis_result_no_scam}")
