@@ -414,8 +414,7 @@ with tab3:
 
         # Show examples for selected term
         selected_term = st.selectbox(
-            "View examples containing term
-            ":",
+            "View examples containing term:",
             term_df.index,
             index=0
         )
