@@ -1,8 +1,6 @@
-from genai_analysis import analyze_with_genai
-import streamlit as st
 import openai
+import streamlit as st
 import os
-openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 import pandas as pd
 import plotly.express as px
 import re
@@ -120,7 +118,8 @@ with tab2:
         use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
         if use_genai:
             with st.spinner("Running GenAI analysis..."):
-                df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai)
+                openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+                df["GenAI Analysis"] = df[description_column].apply(lambda text: analyze_with_genai(text, openai_api_key))
 
         df["Risk Score"] = df[description_column].apply(check_scam_risk)
         df["Risk Level"] = pd.cut(df["Risk Score"], bins=[0, 30, 70, 100], labels=["Low", "Medium", "High"], right=False)
