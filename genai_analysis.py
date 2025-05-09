@@ -3,14 +3,6 @@ import openai
 import streamlit as st
 import os
 
-openai.api_key = st.secrets.get("OPENAI_API_KEY")
-if openai.api_key:
-    print(f"GenAI Analysis - First 5 of API Key: {openai.api_key[:5]}")
-else:
-    print("GenAI Analysis - API Key NOT FOUND in secrets!")
-    st.warning("OpenAI API key not found in Streamlit secrets.")
-    return "OpenAI API key not configured"
-    
 def analyze_with_genai(text):
     """
     Analyzes text using OpenAI's GPT model for potential scam indicators.
@@ -20,6 +12,9 @@ def analyze_with_genai(text):
         if not openai.api_key:
             st.warning("OpenAI API key is not configured in Streamlit secrets.")
             return "OpenAI API key not configured"
+
+        # **DEBUGGING: Print the API key being used**
+        print(f"DEBUG: analyze_with_genai - API Key being used (first 8 chars): {openai.api_key[:8] if openai.api_key else 'None'}")
 
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",  # Or another suitable model
@@ -37,9 +32,6 @@ def analyze_with_genai(text):
         return f"Error during GenAI analysis: {e}"
 
 if __name__ == '__main__':
-    # This block is for testing the analyze_with_genai function directly.
-    # It won't have access to Streamlit secrets when run this way.
-    # You would typically run this via the main Streamlit app.
     print("Running genai_analysis.py directly (for testing):")
     test_text = "This amazing opportunity guarantees you a high-paying role immediately after you pay a small training fee. No experience needed!"
     analysis_result = analyze_with_genai(test_text)
