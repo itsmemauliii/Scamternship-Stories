@@ -2,9 +2,8 @@
 import openai
 import streamlit as st
 import os
-
-openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-
+api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+st.write(f"Current API Key: {api_key}") # Temporary check - remove after verifying
 def analyze_with_genai(text):
     """
     Analyzes text using OpenAI's GPT model for potential scam indicators.
