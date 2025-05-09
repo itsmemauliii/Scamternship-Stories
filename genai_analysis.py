@@ -3,16 +3,17 @@ import openai
 import streamlit as st
 import os
 
-def analyze_with_genai(text):
+def analyze_with_genai(text, api_key):
     """
     Analyzes text using OpenAI's GPT model for potential scam indicators.
-    Relies on openai.api_key being set globally.
+    Now accepts the API key as an argument.
     """
     try:
-        if not openai.api_key:
-            st.warning("OpenAI API key is not set.")
+        if not api_key:
+            st.warning("OpenAI API key is not provided to the analysis function.")
             return "API key not provided"
 
+        openai.api_key = api_key  # Set the API key within the function's scope
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",  # Or another suitable model
             messages=[
@@ -31,11 +32,15 @@ def analyze_with_genai(text):
 if __name__ == '__main__':
     print("Running genai_analysis.py directly (for testing):")
     test_text = "This amazing opportunity guarantees you a high-paying role immediately after you pay a small training fee. No experience needed!"
-    # When running directly, it won't have Streamlit secrets
-    openai.api_key = os.environ.get("OPENAI_API_KEY")  # For direct testing
-    analysis_result = analyze_with_genai(test_text)
-    print(f"Analysis of: '{test_text}'\nResult: {analysis_result}")
+    # For direct testing, you'd still need to provide an API key
+    test_api_key = os.environ.get("OPENAI_API_KEY")
+    if test_api_key:
+        analysis_result = analyze_with_genai(test_text, test_api_key)
+        print(f"Analysis of: '{test_text}'\nResult: {analysis_result}")
+    else:
+        print("Please set the OPENAI_API_KEY environment variable for direct testing.")
 
     test_text_no_scam = "Seeking a motivated intern to assist with marketing tasks. This is an unpaid internship offering valuable experience."
-    analysis_result_no_scam = analyze_with_genai(test_text_no_scam)
-    print(f"Analysis of: '{test_text_no_scam}'\nResult: {analysis_result_no_scam}")
+    if test_api_key:
+        analysis_result_no_scam = analyze_with_genai(test_text_no_scam, test_api_key)
+        print(f"Analysis of: '{test_text_no_scam}'\nResult: {analysis_result_no_scam}")
