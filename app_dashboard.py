@@ -1,7 +1,8 @@
 from genai_analysis import analyze_with_genai
 import streamlit as st
 import openai
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+import os
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 import pandas as pd
 import plotly.express as px
 import re
