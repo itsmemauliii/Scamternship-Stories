@@ -1,3 +1,4 @@
+from genai_analysis import analyze_with_genai
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -163,6 +164,12 @@ with tab2:
         else:
             st.error("No text columns found for analysis")
             st.stop()
+        use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
+
+        if use_genai:
+            with st.spinner("Running GenAI analysis..."):
+                df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai)
+                st.dataframe(df[["Job Title", "Companies", "Description", "Risk Score", "Risk Level", "GenAI Analysis"]])
 
         # **New: Column selection for Job Title/Position**
         job_title_column = None
