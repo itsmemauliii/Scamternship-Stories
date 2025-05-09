@@ -360,6 +360,10 @@ with tab3:
                 st.error("No text columns found for analysis")
                 st.stop()
 
+        use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
+        if use_genai:
+            with st.spinner("Running GenAI analysis..."):
+            df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai) # Line might be near here
             # Enhanced word cloud section
             st.subheader("Word Cloud of Common Terms")
 
