@@ -356,69 +356,65 @@ with tab3:
             else:
                 description_column = text_columns[0]
                 st.warning(f"Using '{description_column}' as description column")
-            else:
-                st.error("No text columns found for analysis")
-                st.stop()
-
-        use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
-        if use_genai:
-            with st.spinner("Running GenAI analysis..."):
-            df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai) # Line might be near here
-            # Enhanced word cloud section
-            st.subheader("Word Cloud of Common Terms")
-
-            all_text = " ".join(df[description_column].astype(str))
-            wc_fig = generate_wordcloud(all_text)
-
-            if wc_fig:
-                st.pyplot(wc_fig)
-            else:
-                st.warning("Could not generate word cloud")
-
-            # Term frequency analysis
-            st.subheader("Red Flag Term Frequency")
-
-            red_flag_terms = [
-                "payment", "deposit", "fee", "unpaid", "money",
-                "investment", "registration", "training", "guaranteed",
-                "required", "pay", "send", "secure", "opportunity"
-            ]
-
-            term_counts = {}
-            for term in red_flag_terms:
-                term_counts[term] = sum(
-                    bool(re.search(rf"\b{term}\b", text.lower()))
-                    for text in df[description_column].astype(str)
-                )
-
-            term_df = pd.DataFrame.from_dict(term_counts, orient="index", columns=["Count"])
-            term_df = term_df.sort_values("Count", ascending=False)
-
-            fig5 = px.bar(
-                term_df,
-                x=term_df.index,
-                y="Count",
-                color="Count",
-                color_continuous_scale="reds",
-                title="Red Flag Term Frequency",
-                labels={"index": "Term", "Count": "Occurrences"}
-            )
-            st.plotly_chart(fig5, use_container_width=True)
-
-            # Show examples for selected term
-            selected_term = st.selectbox(
-                "View examples containing term:",
-                term_df.index,
-                index=0
-            )
-
-            examples = df[
-                df[description_column].str.contains(selected_term, case=False)
-            ][["Description", "Risk Score", "Risk Level"]]  # Ensure 'Description' is used here
-
-            if not examples.empty:
-                st.dataframe(examples, use_container_width=True)
-            else:
-                st.info(f"No examples found containing '{selected_term}'")
         else:
-            st.warning("No description data available for analysis")
+            st.error("No text columns found for analysis")
+            st.stop()
+
+        # Enhanced word cloud section
+        st.subheader("Word Cloud of Common Terms")
+
+        all_text = " ".join(df[description_column].astype(str))
+        wc_fig = generate_wordcloud(all_text)
+
+        if wc_fig:
+            st.pyplot(wc_fig)
+        else:
+            st.warning("Could not generate word cloud")
+
+        # Term frequency analysis
+        st.subheader("Red Flag Term Frequency")
+
+        red_flag_terms = [
+            "payment", "deposit", "fee", "unpaid", "money",
+            "investment", "registration", "training", "guaranteed",
+            "required", "pay", "send", "secure", "opportunity"
+        ]
+
+        term_counts = {}
+        for term in red_flag_terms:
+            term_counts[term] = sum(
+                bool(re.search(rf"\b{term}\b", text.lower()))
+                for text in df[description_column].astype(str)
+            )
+
+        term_df = pd.DataFrame.from_dict(term_counts, orient="index", columns=["Count"])
+        term_df = term_df.sort_values("Count", ascending=False)
+
+        fig5 = px.bar(
+            term_df,
+            x=term_df.index,
+            y="Count",
+            color="Count",
+            color_continuous_scale="reds",
+            title="Red Flag Term Frequency",
+            labels={"index": "Term", "Count": "Occurrences"}
+        )
+        st.plotly_chart(fig5, use_container_width=True)
+
+        # Show examples for selected term
+        selected_term = st.selectbox(
+            "View examples containing term:",
+            term_df.index,
+            index=0
+        )
+
+        examples = df[
+            df[description_column].str.contains(selected_term, case=False)
+        ][["Description", "Risk Score", "Risk Level"]]  # Ensure 'Description' is used here
+
+        if not examples.empty:
+            st.dataframe(examples, use_container_width=True)
+        else:
+            st.info(f"No examples found containing '{selected_term}'")
+    else:
+        st.warning("No description data available for analysis")
