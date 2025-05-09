@@ -1,6 +1,8 @@
+from genai_analysis import analyze_with_genai
 import streamlit as st
 import openai
 import os
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 import pandas as pd
 import plotly.express as px
 import re
@@ -8,69 +10,34 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from PyPDF2 import PdfReader
 
-# **DEBUGGING: Check if Streamlit secrets are loaded**
-print("DEBUG: app_dashboard - Checking Streamlit secrets...")
-try:
-    openai_api_key_from_secrets = st.secrets.get("OPENAI_API_KEY")
-    if openai_api_key_from_secrets:
-        print(f"DEBUG: app_dashboard - OpenAI API Key found in secrets (first 8 chars): {openai_api_key_from_secrets[:8]}")
-    else:
-        print("DEBUG: app_dashboard - OpenAI API Key NOT FOUND in secrets within app_dashboard!")
-except Exception as e:
-    print(f"DEBUG: app_dashboard - Error accessing secrets: {e}")
-
-# **IMPORTANT: st.set_page_config() MUST be the very first Streamlit call.**
+# **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
-# Initialize session state
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame()
-# Define functions
+
 def check_scam_risk(text):
-    """
-    Enhanced version of scam detection for the dashboard
-    """
     risk_score = 0
     text = str(text).lower()
-
     red_flags = {
-        "no payment": 15,
-        "unpaid": 15,
-        "deposit required": 25,
-        "send money": 25,
-        "guaranteed job": 20,
-        "immediate start": 10,
-        "no experience needed": 10,
-        "registration fee": 20,
-        "training fee": 20,
-        "investment required": 25,
-        "pay to work": 30,
-        "application fee": 20
+        "no payment": 15, "unpaid": 15, "deposit required": 25, "send money": 25,
+        "guaranteed job": 20, "immediate start": 10, "no experience needed": 10,
+        "registration fee": 20, "training fee": 20, "investment required": 25,
+        "pay to work": 30, "application fee": 20
     }
-
     for flag, score in red_flags.items():
         if flag in text:
             risk_score += score
-
     if re.search(r"\$\d+|\d+\s*(USD|INR|₹|dollars|rupees)", text):
         risk_score += 25
-
-    return min(risk_score, 100)  # Cap at 100
+    return min(risk_score, 100)
 
 def generate_wordcloud(text):
-    """Generate word cloud visualization with improved settings"""
     try:
         wordcloud = WordCloud(
-            width=1000,
-            height=600,
-            background_color="white",
-            colormap="Reds",
-            max_words=100,
-            stopwords=None,
-            contour_width=1,
-            contour_color='steelblue'
+            width=1000, height=600, background_color="white", colormap="Reds",
+            max_words=100, stopwords=None, contour_width=1, contour_color='steelblue'
         ).generate(text)
-
         fig, ax = plt.subplots(figsize=(12, 8))
         ax.imshow(wordcloud, interpolation="bilinear")
         ax.axis("off")
@@ -81,7 +48,6 @@ def generate_wordcloud(text):
         return None
 
 def load_data(uploaded_file):
-    """Load data from CSV or Excel file."""
     try:
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file, skipinitialspace=True)
@@ -100,78 +66,53 @@ def load_data(uploaded_file):
         return None
 
 def load_pdf_data(uploaded_file):
-    """Load data from PDF file and extract relevant information."""
     text = ""
     try:
         pdf_reader = PdfReader(uploaded_file)
         for page in pdf_reader.pages:
             text += page.extract_text() + "\n"
-        # Basic extraction (Improved)
         job_title_match = re.search(r"(?:Job Title:|Position:)\s*(.*)", text, re.IGNORECASE)
         job_title = job_title_match.group(1).strip() if job_title_match else "N/A"
-
         company_match = re.search(r"(?:Company:|Hiring at:|Organization:)\s*(.*)", text, re.IGNORECASE)
         company = company_match.group(1).strip() if company_match else "N/A"
         return pd.DataFrame({"Job Title": [job_title], "Companies": [company], "Description": [text]})
-
     except Exception as e:
         st.error(f"Error reading PDF: {e}")
         return None
 
-# Main App Structure
+# TAB 1: Upload
 tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis Results", "Red Flags Word Cloud"])
-
 with tab1:
     st.header("Upload Your Data")
-    uploaded_file = st.file_uploader(
-        "Choose a file (CSV, Excel, or PDF)",
-        type=["csv", "xls", "xlsx", "pdf"],
-        help="Upload internship listings for analysis"
-    )
-
+    uploaded_file = st.file_uploader("Choose a file (CSV, Excel, or PDF)", type=["csv", "xls", "xlsx", "pdf"])
     if uploaded_file:
-        if uploaded_file.name.endswith(".pdf"):
-            df = load_pdf_data(uploaded_file)
-        else:
-            df = load_data(uploaded_file)
-
+        df = load_pdf_data(uploaded_file) if uploaded_file.name.endswith(".pdf") else load_data(uploaded_file)
         if df is not None and not df.empty:
             st.session_state.df = df
             st.success("Data loaded successfully!")
-
-            # Show basic stats
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Listings", len(df))
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
             col2.metric("Text Columns", len(text_cols))
             col3.metric("Companies", df["Companies"].nunique() if "Companies" in df.columns else "N/A")
-
             st.dataframe(df.head())
         else:
             st.warning("Could not load data from the file.")
 
+# TAB 2: Analysis
 with tab2:
     st.header("Analysis Results")
     df = st.session_state.df
-
     if not df.empty:
-        # Improved column selection for description
         description_column = None
         text_columns = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
-
         if "Description" in df.columns:
             description_column = "Description"
         elif text_columns:
             if len(text_columns) > 1:
-                description_column = st.selectbox(
-                    "Select the description column:",
-                    text_columns,
-                    index=0,
-                    help="Select which column contains the job descriptions"
-                )
+                description_column = st.selectbox("Select the description column:", text_columns, index=0)
             else:
                 description_column = text_columns[0]
-                st.warning(f"Using '{description_column}' as description column")
         else:
             st.error("No text columns found for analysis")
             st.stop()
@@ -179,15 +120,15 @@ with tab2:
         use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
         if use_genai:
             with st.spinner("Running GenAI analysis..."):
-                openai_api_key_from_secrets = st.secrets.get("OPENAI_API_KEY")
-                df["GenAI Analysis"] = df[description_column].apply(lambda text: analyze_with_genai(text, openai_api_key_from_secrets))
+                df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai)
 
-        # Safely display results with available columns
+        df["Risk Score"] = df[description_column].apply(check_scam_risk)
+        df["Risk Level"] = pd.cut(df["Risk Score"], bins=[0, 30, 70, 100], labels=["Low", "Medium", "High"], right=False)
+
         st.subheader("Final Results Table")
         expected_cols = ["Job Title", "Companies", description_column, "Risk Score", "Risk Level", "GenAI Analysis"]
         available_cols = [col for col in expected_cols if col in df.columns]
         st.dataframe(df[available_cols])
-
 
         # **New: Column selection for Job Title/Position**
         job_title_column = None
@@ -204,14 +145,6 @@ with tab2:
 
         if not job_title_column:
             st.warning("No column selected for job titles/positions. Position-wise analysis will use row index.")
-
-        # Apply enhanced scam analysis
-        with st.spinner("Analyzing listings for potential scams..."):
-            df["Risk Score"] = df[description_column].apply(check_scam_risk)
-            df["Risk Level"] = pd.cut(df["Risk Score"],
-                                        bins=[0, 30, 70, 100],
-                                        labels=["Low", "Medium", "High"],
-                                        right=False)
 
         # Visualization Section
         st.subheader("Risk Analysis Visualizations")
@@ -347,6 +280,7 @@ with tab2:
 with tab3:
     st.header("Red Flags Analysis")
     df = st.session_state.df
+
     if not df.empty:
         # Improved column selection for description
         description_column = None
