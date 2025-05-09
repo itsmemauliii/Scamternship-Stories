@@ -4,3 +4,5 @@ plotly
 wordcloud
 matplotlib
 pypdf2
+openai
+
