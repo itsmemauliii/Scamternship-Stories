@@ -32,10 +32,11 @@ def analyze_with_genai(text, api_key):
 if __name__ == '__main__':
     print("Running genai_analysis.py directly (for testing):")
     test_text = "This amazing opportunity guarantees you a high-paying role immediately after you pay a small training fee. No experience needed!"
-    # When running directly, it won't have Streamlit secrets
+    # When running directly, it won't have Streamlit secrets, so we use os.environ
     analysis_result = analyze_with_genai(test_text, os.environ.get("OPENAI_API_KEY"))
     print(f"Analysis of: '{test_text}'\nResult: {analysis_result}")
 
     test_text_no_scam = "Seeking a motivated intern to assist with marketing tasks. This is an unpaid internship offering valuable experience."
     analysis_result_no_scam = analyze_with_genai(test_text_no_scam, os.environ.get("OPENAI_API_KEY"))
     print(f"Analysis of: '{test_text_no_scam}'\nResult: {analysis_result_no_scam}")
+}
