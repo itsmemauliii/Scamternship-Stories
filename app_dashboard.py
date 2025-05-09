@@ -168,13 +168,10 @@ with tab2:
             st.error("No text columns found for analysis")
             st.stop()
         from genai_analysis import analyze_with_genai
-
         use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
-
         if use_genai:
             with st.spinner("Running GenAI analysis..."):
             df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai)
-
         # Safely display results with available columns
         st.subheader("Final Results Table")
         expected_cols = ["Job Title", "Companies", description_column, "Risk Score", "Risk Level", "GenAI Analysis"]
