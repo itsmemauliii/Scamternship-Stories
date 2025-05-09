@@ -180,7 +180,8 @@ with tab2:
         use_genai = st.checkbox("Use GenAI for deeper analysis", value=False)
         if use_genai:
             with st.spinner("Running GenAI analysis..."):
-                df["GenAI Analysis"] = df[description_column].apply(analyze_with_genai)
+                openai_api_key_from_secrets = st.secrets.get("OPENAI_API_KEY")
+                df["GenAI Analysis"] = df[description_column].apply(lambda text: analyze_with_genai(text, openai_api_key_from_secrets))
 
         # Safely display results with available columns
         st.subheader("Final Results Table")
@@ -209,9 +210,9 @@ with tab2:
         with st.spinner("Analyzing listings for potential scams..."):
             df["Risk Score"] = df[description_column].apply(check_scam_risk)
             df["Risk Level"] = pd.cut(df["Risk Score"],
-                                     bins=[0, 30, 70, 100],
-                                     labels=["Low", "Medium", "High"],
-                                     right=False)
+                                        bins=[0, 30, 70, 100],
+                                        labels=["Low", "Medium", "High"],
+                                        right=False)
 
         # Visualization Section
         st.subheader("Risk Analysis Visualizations")
@@ -386,45 +387,4 @@ with tab3:
 
         red_flag_terms = [
             "payment", "deposit", "fee", "unpaid", "money",
-            "investment", "registration", "training", "guaranteed",
-            "required", "pay", "send", "secure", "opportunity"
-        ]
-
-        term_counts = {}
-        for term in red_flag_terms:
-            term_counts[term] = sum(
-                bool(re.search(rf"\b{term}\b", text.lower()))
-                for text in df[description_column].astype(str)
-            )
-
-        term_df = pd.DataFrame.from_dict(term_counts, orient="index", columns=["Count"])
-        term_df = term_df.sort_values("Count", ascending=False)
-
-        fig5 = px.bar(
-            term_df,
-            x=term_df.index,
-            y="Count",
-            color="Count",
-            color_continuous_scale="reds",
-            title="Red Flag Term Frequency",
-            labels={"index": "Term", "Count": "Occurrences"}
-        )
-        st.plotly_chart(fig5, use_container_width=True)
-
-        # Show examples for selected term
-        selected_term = st.selectbox(
-            "View examples containing term:",
-            term_df.index,
-            index=0
-        )
-
-        examples = df[
-            df[description_column].str.contains(selected_term, case=False)
-        ][["Description", "Risk Score", "Risk Level"]]  # Ensure 'Description' is used here
-
-        if not examples.empty:
-            st.dataframe(examples, use_container_width=True)
-        else:
-            st.info(f"No examples found containing '{selected_term}'")
-    else:
-        st.warning("No description data available for analysis")
+            "
