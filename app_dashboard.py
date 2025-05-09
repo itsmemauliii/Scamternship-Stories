@@ -1,4 +1,3 @@
-from genai_analysis import analyze_with_genai
 import streamlit as st
 import openai
 import os
