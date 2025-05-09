@@ -9,13 +9,23 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from PyPDF2 import PdfReader
 
+# **DEBUGGING: Check if Streamlit secrets are loaded**
+print("DEBUG: app_dashboard - Checking Streamlit secrets...")
+try:
+    openai_api_key_from_secrets = st.secrets.get("OPENAI_API_KEY")
+    if openai_api_key_from_secrets:
+        print(f"DEBUG: app_dashboard - OpenAI API Key found in secrets (first 8 chars): {openai_api_key_from_secrets[:8]}")
+    else:
+        print("DEBUG: app_dashboard - OpenAI API Key NOT FOUND in secrets within app_dashboard!")
+except Exception as e:
+    print(f"DEBUG: app_dashboard - Error accessing secrets: {e}")
+
 # **IMPORTANT: st.set_page_config() MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
 # Initialize session state
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame()
-
 # Define functions
 def check_scam_risk(text):
     """
