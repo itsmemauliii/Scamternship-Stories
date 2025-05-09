@@ -1,18 +1,16 @@
 # genai_analysis.py
-from genai_analysis import analyze_with_genai
 import openai
 import streamlit as st
 import os
 
-def analyze_with_genai(text, api_key):
+def analyze_with_genai(text):
     """
     Analyzes text using OpenAI's GPT model for potential scam indicators.
-    Accepts the API key as an argument.
+    Relies on openai.api_key being set globally.
     """
     try:
-        openai.api_key = api_key
         if not openai.api_key:
-            st.warning("API key was not provided to the analysis function.")
+            st.warning("OpenAI API key is not set.")
             return "API key not provided"
 
         response = openai.chat.completions.create(
@@ -34,11 +32,10 @@ if __name__ == '__main__':
     print("Running genai_analysis.py directly (for testing):")
     test_text = "This amazing opportunity guarantees you a high-paying role immediately after you pay a small training fee. No experience needed!"
     # When running directly, it won't have Streamlit secrets
-    analysis_result = analyze_with_genai(test_text, os.environ.get("OPENAI_API_KEY"))
+    openai.api_key = os.environ.get("OPENAI_API_KEY")  # For direct testing
+    analysis_result = analyze_with_genai(test_text)
     print(f"Analysis of: '{test_text}'\nResult: {analysis_result}")
 
     test_text_no_scam = "Seeking a motivated intern to assist with marketing tasks. This is an unpaid internship offering valuable experience."
-    analysis_result_no_scam = analyze_with_genai(test_text_no_scam, os.environ.get("OPENAI_API_KEY"))
+    analysis_result_no_scam = analyze_with_genai(test_text_no_scam)
     print(f"Analysis of: '{test_text_no_scam}'\nResult: {analysis_result_no_scam}")
-
-}
