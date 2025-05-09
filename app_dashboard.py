@@ -387,4 +387,47 @@ with tab3:
 
         red_flag_terms = [
             "payment", "deposit", "fee", "unpaid", "money",
-            "
+            "investment", "registration", "training", "guaranteed",
+            "required", "pay", "send", "secure", "opportunity"
+        ]
+
+        term_counts = {}
+        for term in red_flag_terms:
+            term_counts[term] = sum(
+                bool(re.search(rf"\b{term}\b", text.lower()))
+                for text in df[description_column].astype(str)
+            )
+
+        term_df = pd.DataFrame.from_dict(term_counts, orient="index", columns=["Count"])
+        term_df = term_df.sort_values("Count", ascending=False)
+
+        fig5 = px.bar(
+            term_df,
+            x=term_df.index,
+            y="Count",
+            color="Count",
+            color_continuous_scale="reds",
+            title="Red Flag Term Frequency",
+            labels={"index": "Term", "Count": "Occurrences"}
+        )
+        st.plotly_chart(fig5, use_container_width=True)
+
+        # Show examples for selected term
+        selected_term = st.selectbox(
+            "View examples containing term
+            ":",
+            term_df.index,
+            index=0
+        )
+
+        examples = df[
+            df[description_column].str.contains(selected_term, case=False)
+        ][["Description", "Risk Score", "Risk Level"]]  # Ensure 'Description' is used here
+
+        if not examples.empty:
+            st.subheader(f"Examples containing '{selected_term}'")
+            st.dataframe(examples, use_container_width=True)
+        else:
+            st.info(f"No examples found containing '{selected_term}'")
+    else:
+        st.warning("No description data available for analysis")
