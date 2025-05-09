@@ -2,8 +2,7 @@ from genai_analysis import analyze_with_genai
 import streamlit as st
 import os
 import openai
-api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-st.write(f"Current API Key: {api_key}") # Temporary check - remove after verifying
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 import pandas as pd
 import plotly.express as px
 import re
