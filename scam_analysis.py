@@ -1,9 +1,19 @@
 import re
 
 def check_scam_risk(description):
+    """
+    Analyzes a job description for potential scam indicators.
+
+    Args:
+        description (str): The job description to analyze.
+
+    Returns:
+        dict: A dictionary containing the scam risk score, identified red flags, and advice.
+    """
     red_flags = []
     score = 0
 
+    # Define patterns for different scam indicators
     patterns = {
         "Unpaid Opportunity": r"\bunpaid\b|\bno (?:stipend|payment|compensation)\b|\bwithout pay\b",
         "Advance Fee Scam": r"(?:pay|deposit|transfer|fee).*?(?:application|registration|process|confirm|fee|amount|INR|₹|\d+)\b",
@@ -15,11 +25,11 @@ def check_scam_risk(description):
         "Suspicious Payment Amounts": r"\b\d{4,}\b.*?(?:fee|deposit|pay)"
     }
 
-    # Check each pattern
+    # Check each pattern against the description
     for flag, pattern in patterns.items():
         if re.search(pattern, description, re.IGNORECASE):
             red_flags.append(flag)
-            # Different weights for different flags
+            # Assign different weights for different flags
             if flag in ["Advance Fee Scam", "Guaranteed Job Scam"]:
                 score += 30
             elif flag in ["Too Good to Be True", "High Pressure Tactics"]:
@@ -33,7 +43,7 @@ def check_scam_risk(description):
         red_flags.append("Advance Fee Scam")
         score += 30
 
-    # Determine advice based on score
+    # Determine advice based on the score
     if score >= 60:
         advice = "High risk: Very likely a scam - avoid completely."
     elif score >= 40:
@@ -44,3 +54,17 @@ def check_scam_risk(description):
         advice = "Low risk: Seems legitimate but still verify details."
 
     return {"score": score, "flags": red_flags, "advice": advice}
+
+# Sample usage
+if __name__ == "__main__":
+    # Example job descriptions to analyze
+    descriptions = [
+        "This is an unpaid internship with no experience needed. Hurry, apply now!",
+        "We guarantee you a job after a small training fee. No interviews required!",
+        "This opportunity offers a certificate after payment. Apply today!",
+        "Seeking a motivated intern to assist with marketing tasks. This is an unpaid internship offering valuable experience."
+    ]
+
+    for desc in descriptions:
+        result = check_scam_risk(desc)
+        print(f"Description: {desc}\nResult: {result}\n")
