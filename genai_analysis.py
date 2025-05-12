@@ -1,4 +1,3 @@
-# genai_analysis.py
 import openai
 import streamlit as st
 import os
@@ -14,7 +13,7 @@ def analyze_with_genai(text, api_key):
             return "API key not provided"
 
         openai.api_key = api_key  # Set the API key within the function's scope
-        response = openai.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Or another suitable model
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that analyzes job descriptions for potential scam indicators. Focus on vague language, requests for money, guaranteed roles without interviews, and unusual urgency."},
@@ -32,6 +31,7 @@ def analyze_with_genai(text, api_key):
 if __name__ == '__main__':
     print("Running genai_analysis.py directly (for testing):")
     test_text = "This amazing opportunity guarantees you a high-paying role immediately after you pay a small training fee. No experience needed!"
+    
     # For direct testing, you'd still need to provide an API key
     test_api_key = os.environ.get("OPENAI_API_KEY")
     if test_api_key:
