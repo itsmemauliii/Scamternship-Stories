@@ -8,7 +8,6 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from PyPDF2 import PdfReader
 
-# **IMPORTANT: `st.set_page_config()` MUST be the very first Streamlit call.**
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
 if "df" not in st.session_state:
@@ -68,7 +67,9 @@ def load_pdf_data(uploaded_file):
     try:
         pdf_reader = PdfReader(uploaded_file)
         for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
         job_title_match = re.search(r"(?:Job Title:|Position:)\s*(.*)", text, re.IGNORECASE)
         job_title = job_title_match.group(1).strip() if job_title_match else "N/A"
         company_match = re.search(r"(?:Company:|Hiring at:|Organization:)\s*(.*)", text, re.IGNORECASE)
@@ -84,7 +85,10 @@ with tab1:
     st.header("Upload Your Data")
     uploaded_file = st.file_uploader("Choose a file (CSV, Excel, or PDF)", type=["csv", "xls", "xlsx", "pdf"])
     if uploaded_file:
-        df = load_pdf_data(uploaded_file) if uploaded_file.name.endswith(".pdf") else load_data(uploaded_file)
+        if uploaded_file.name.endswith(".pdf"):
+            df = load_pdf_data(uploaded_file)
+        else:
+            df = load_data(uploaded_file)
         if df is not None and not df.empty:
             st.session_state.df = df
             st.success("Data loaded successfully!")
@@ -93,7 +97,7 @@ with tab1:
             text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
             col2.metric("Text Columns", len(text_cols))
             col3.metric("Companies", df["Companies"].nunique() if "Companies" in df.columns else "N/A")
-            st.dataframe(df.head())
+            st.dataframe(df.head(), use_container_width=True)
         else:
             st.warning("Could not load data from the file.")
 
@@ -119,7 +123,10 @@ with tab2:
         if use_genai:
             with st.spinner("Running GenAI analysis..."):
                 openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-                df["GenAI Analysis"] = df[description_column].apply(lambda text: analyze_with_genai(text, openai_api_key))
+                if not openai_api_key:
+                    st.error("OpenAI API key not found. Please set it in secrets or environment variables.")
+                else:
+                    df["GenAI Analysis"] = df[description_column].apply(lambda text: analyze_with_genai(text, openai_api_key))
 
         df["Risk Score"] = df[description_column].apply(check_scam_risk)
         df["Risk Level"] = pd.cut(df["Risk Score"], bins=[0, 30, 70, 100], labels=["Low", "Medium", "High"], right=False)
@@ -127,7 +134,7 @@ with tab2:
         st.subheader("Final Results Table")
         expected_cols = ["Job Title", "Companies", description_column, "Risk Score", "Risk Level", "GenAI Analysis"]
         available_cols = [col for col in expected_cols if col in df.columns]
-        st.dataframe(df[available_cols])
+        st.dataframe(df[available_cols], use_container_width=True)
 
         # **New: Column selection for Job Title/Position**
         job_title_column = None
@@ -162,11 +169,11 @@ with tab2:
                 color_discrete_map={"Low": "#2ecc71", "Medium": "#f39c12", "High": "#e74c3c"},
                 hover_data=[description_column, "Companies"] if "Companies" in df.columns else [description_column],
                 title="Risk Scores by Position",
-                labels={"Risk Score": "Risk Score (%)", x_axis_label: "Position"},
+                labels={"Risk Score": "Risk Score (%)", x_axis_label: "Position" if isinstance(x_axis_label, str) else "Index"},
                 height=600
             )
             fig1.update_layout(
-                xaxis_title="Position",
+                xaxis_title="Position" if isinstance(x_axis_label, str) else "Index",
                 yaxis_range=[0, 100],
                 hovermode="closest"
             )
@@ -196,7 +203,7 @@ with tab2:
                 )
                 fig2.update_layout(
                     yaxis_range=[0, 100],
-                    xaxis_range=[0, company_stats["Count"].max() * 1.1]
+                    xaxis_range=[0, company_stats["Count"].max() * 1.1] if company_stats["Count"].max() > 0 else None
                 )
                 st.plotly_chart(fig2, use_container_width=True)
             else:
@@ -209,6 +216,7 @@ with tab2:
             with col1:
                 # Pie chart
                 risk_dist = df["Risk Level"].value_counts().reset_index()
+                risk_dist.columns = ["Risk Level", "count"]
                 fig3 = px.pie(
                     risk_dist,
                     values="count",
@@ -254,8 +262,10 @@ with tab2:
         # Show metrics
         col1, col2, col3 = st.columns(3)
         col1.metric("Filtered Listings", len(filtered_df))
-        col2.metric("Average Risk", f"{filtered_df['Risk Score'].mean():.1f}%")
-        col3.metric("High Risk", f"{sum(filtered_df['Risk Level'] == 'High')}")
+        avg_risk = filtered_df['Risk Score'].mean() if not filtered_df.empty else 0
+        col2.metric("Average Risk", f"{avg_risk:.1f}%")
+        high_risk_count = sum(filtered_df['Risk Level'] == 'High') if not filtered_df.empty else 0
+        col3.metric("High Risk", f"{high_risk_count}")
 
         # Display results
         st.dataframe(
@@ -324,7 +334,7 @@ with tab3:
         term_counts = {}
         for term in red_flag_terms:
             term_counts[term] = sum(
-                bool(re.search(rf"\b{term}\b", text.lower()))
+                bool(re.search(rf"\b{re.escape(term)}\b", text.lower()))
                 for text in df[description_column].astype(str)
             )
 
@@ -349,14 +359,18 @@ with tab3:
             index=0
         )
 
-        examples = df[
-            df[description_column].str.contains(selected_term, case=False)
-        ][["Description", "Risk Score", "Risk Level"]]  # Ensure 'Description' is used here
-
-        if not examples.empty:
-            st.subheader(f"Examples containing '{selected_term}'")
-            st.dataframe(examples, use_container_width=True)
+        if description_column not in df.columns:
+            st.warning("Description column not found in data")
         else:
-            st.info(f"No examples found containing '{selected_term}'")
+            examples = df[
+                df[description_column].str.contains(selected_term, case=False, na=False)
+            ][[description_column, "Risk Score", "Risk Level"]]
+
+            if not examples.empty:
+                st.subheader(f"Examples containing '{selected_term}'")
+                st.dataframe(examples, use_container_width=True)
+            else:
+                st.info(f"No examples found containing '{selected_term}'")
     else:
         st.warning("No description data available for analysis")
+
