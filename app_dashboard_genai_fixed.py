@@ -7,7 +7,7 @@ import re
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from PyPDF2 import PdfReader
-
+openai_api_key = os.getenv("OPENAI_API_KEY")
 st.set_page_config(page_title="Scamternship Detector Dashboard", layout="wide")
 
 if "df" not in st.session_state:
